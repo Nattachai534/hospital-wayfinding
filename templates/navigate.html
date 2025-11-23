@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🗺️ นำทาง - โรงพยาบาลราชวิถี</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Sarabun', sans-serif; box-sizing: border-box; }
+        :root { --pink: #e91e8c; --pink-light: #fce4f1; }
+        body { background: #f5f5f5; margin: 0; padding-bottom: 80px; }
+        
+        .header { background: linear-gradient(135deg, var(--pink), #c4177a); color: white; padding: 15px; position: sticky; top: 0; z-index: 100; }
+        .header-content { display: flex; align-items: center; justify-content: space-between; max-width: 800px; margin: 0 auto; }
+        .back-btn { color: white; font-size: 20px; text-decoration: none; }
+        .header h1 { font-size: 18px; margin: 0; }
+        
+        .container { max-width: 800px; margin: 0 auto; padding: 15px; }
+        
+        /* Destination Card */
+        .dest-card { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .dest-header { display: flex; align-items: center; margin-bottom: 15px; }
+        .dest-icon { width: 60px; height: 60px; border-radius: 15px; background: var(--pink-light); color: var(--pink); display: flex; align-items: center; justify-content: center; font-size: 28px; margin-right: 15px; }
+        .dest-name { font-size: 22px; font-weight: 700; }
+        .dest-location { color: #666; font-size: 14px; }
+        
+        /* Directions */
+        .direction-step { display: flex; align-items: flex-start; padding: 15px; background: #f8f9fa; border-radius: 12px; margin-bottom: 10px; }
+        .step-num { width: 30px; height: 30px; border-radius: 50%; background: var(--pink); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; margin-right: 15px; flex-shrink: 0; }
+        .step-content { flex: 1; }
+        .step-text { font-size: 15px; line-height: 1.5; }
+        .step-note { font-size: 12px; color: #888; margin-top: 5px; }
+        
+        /* Floor Selector */
+        .floor-selector { background: white; border-radius: 15px; padding: 15px; margin-bottom: 15px; }
+        .floor-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+        .floor-tab { padding: 8px 16px; border: 2px solid #eee; border-radius: 10px; background: white; cursor: pointer; font-weight: 600; font-size: 14px; }
+        .floor-tab.active { background: var(--pink); color: white; border-color: var(--pink); }
+        .floor-tab:hover { border-color: var(--pink); }
+        
+        /* Map Container */
+        .map-container { background: white; border-radius: 15px; overflow: hidden; margin-bottom: 15px; position: relative; }
+        .map-image { width: 100%; display: block; }
+        .map-marker { position: absolute; width: 40px; height: 40px; border-radius: 50%; background: var(--pink); border: 3px solid white; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; color: white; font-size: 16px; box-shadow: 0 3px 10px rgba(0,0,0,0.3); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(233,30,140,0.4); } 50% { box-shadow: 0 0 0 15px rgba(233,30,140,0); } }
+        
+        /* Bottom Actions */
+        .bottom-actions { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); display: flex; gap: 10px; }
+        .action-btn { flex: 1; padding: 15px; border-radius: 12px; border: none; font-size: 16px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .action-btn.primary { background: var(--pink); color: white; }
+        .action-btn.secondary { background: #f0f0f0; color: #333; }
+        
+        /* Search Results */
+        .search-results { background: white; border-radius: 15px; padding: 15px; }
+        .result-item { display: flex; align-items: center; padding: 12px; border: 2px solid #eee; border-radius: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.3s; }
+        .result-item:hover { border-color: var(--pink); background: var(--pink-light); }
+        .result-icon { width: 45px; height: 45px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 12px; font-size: 20px; }
+        .result-info { flex: 1; }
+        .result-name { font-weight: 600; font-size: 15px; }
+        .result-location { font-size: 12px; color: #666; }
+        
+        /* AI Response */
+        .ai-response { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 15px; padding: 20px; margin-bottom: 15px; }
+        .ai-response h5 { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <a href="/" class="back-btn"><i class="fas fa-arrow-left"></i></a>
+            <h1><i class="fas fa-route me-2"></i>ระบบนำทาง</h1>
+            <button onclick="speakDirections()" style="background:none;border:none;color:white;font-size:20px;"><i class="fas fa-volume-up"></i></button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Loading -->
+        <div id="loading" style="text-align:center;padding:50px;">
+            <i class="fas fa-spinner fa-spin fa-3x" style="color:var(--pink);"></i>
+            <p class="mt-3">กำลังโหลด...</p>
+        </div>
+
+        <!-- Content -->
+        <div id="content" style="display:none;">
+            <!-- AI Response (if search) -->
+            <div id="ai-response" class="ai-response" style="display:none;">
+                <h5><i class="fas fa-robot me-2"></i>AI แนะนำ</h5>
+                <div id="ai-text"></div>
+            </div>
+
+            <!-- Destination Card -->
+            <div id="dest-card" class="dest-card" style="display:none;">
+                <div class="dest-header">
+                    <div class="dest-icon"><i class="fas fa-map-marker-alt"></i></div>
+                    <div>
+                        <div class="dest-name" id="dest-name">-</div>
+                        <div class="dest-location" id="dest-location">-</div>
+                    </div>
+                </div>
+                <div id="directions"></div>
+            </div>
+
+            <!-- Search Results -->
+            <div id="search-results" class="search-results" style="display:none;">
+                <h5 class="mb-3"><i class="fas fa-search me-2" style="color:var(--pink);"></i>ผลการค้นหา</h5>
+                <div id="results-list"></div>
+            </div>
+
+            <!-- Building Floors -->
+            <div id="building-section" style="display:none;">
+                <div class="floor-selector">
+                    <h6 class="mb-3"><i class="fas fa-layer-group me-2" style="color:var(--pink);"></i>เลือกชั้น: <span id="building-name"></span></h6>
+                    <div class="floor-tabs" id="floor-tabs"></div>
+                </div>
+                <div id="floor-info" class="dest-card"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Actions -->
+    <div class="bottom-actions">
+        <button class="action-btn secondary" onclick="window.location.href='/'"><i class="fas fa-home"></i>หน้าหลัก</button>
+        <button class="action-btn primary" onclick="speakDirections()"><i class="fas fa-volume-up"></i>ฟังเสียงนำทาง</button>
+    </div>
+
+    <script>
+        // ==================== DATA ====================
+        const BUILDINGS = {
+            'A': { name: 'อาคารทศมินทราธิราช', floors: ['B1','G','M','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25'] },
+            'B': { name: 'ตึกสิรินธร', floors: ['G','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18'] },
+            'CHALERM': { name: 'อาคารเฉลิมพระเกียรติฯ', floors: ['G','1','M','2','3','4','5','6','7','8','9','10','11','12'] },
+            'D': { name: 'ตึกอำนวยการ', floors: ['G','1','2','3','4','5'] },
+            'E': { name: 'ตึกอุบัติเหตุและฉุกเฉิน EMS', floors: ['G','1','2','3','4'] },
+            'F': { name: 'ตึกอายุรกรรม', floors: ['G','1','2','3','4','5','6'] },
+            'G': { name: 'ตึกสอาด ศิริพัฒน์', floors: ['G','1','2','3','4','5','6','7','8'] },
+            'H': { name: 'ตึกหลวงชำนาญเนติศาสตร์', floors: ['G','1','2','3','4','5','6'] },
+            'I': { name: 'ตึกเจริญ พูลวรลักษณ์', floors: ['G','1','2','3','4','5'] },
+            'J': { name: 'ตึกวิเคราะห์โรคหัวใจ', floors: ['G','1','2','3','4'] },
+            'K': { name: 'ตึกวาศอุทิศ', floors: ['G','1','2','3'] }
+        };
+
+        // Floor information for Chalerm building
+        const CHALERM_FLOORS = {
+            'G': { name: 'ชั้น G', desc: 'ทางเข้าหลัก, ล็อบบี้' },
+            '1': { name: 'ชั้น 1', desc: 'หน่วยงานโภชนาการ - บริการอาหารผู้ป่วย', voice: 'ชั้น 1 เป็นหน่วยงานโภชนาการ บริการอาหารผู้ป่วย' },
+            'M': { name: 'ชั้น M (Mezzanine)', desc: 'หน่วยงานทางการแพทย์, งานวิจัย', voice: 'ชั้น M หรือชั้นลอย มีหน่วยงานทางการแพทย์และงานวิจัย' },
+            '2': { name: 'ชั้น 2', desc: 'ห้องอาหาร - ศูนย์อาหาร', voice: 'ชั้น 2 เป็นห้องอาหาร มีร้านอาหารหลายร้าน' },
+            '3': { name: 'ชั้น 3', desc: 'ลานจอดรถยนต์', voice: 'ชั้น 3 ถึง ชั้น 8 เป็นลานจอดรถยนต์' },
+            '4': { name: 'ชั้น 4', desc: 'ลานจอดรถยนต์', voice: 'ชั้น 4 เป็นลานจอดรถยนต์' },
+            '5': { name: 'ชั้น 5', desc: 'ลานจอดรถยนต์', voice: 'ชั้น 5 เป็นลานจอดรถยนต์' },
+            '6': { name: 'ชั้น 6', desc: 'ลานจอดรถยนต์', voice: 'ชั้น 6 เป็นลานจอดรถยนต์' },
+            '7': { name: 'ชั้น 7', desc: 'ลานจอดรถยนต์', voice: 'ชั้น 7 เป็นลานจอดรถยนต์' },
+            '8': { name: 'ชั้น 8', desc: 'ลานจอดรถยนต์', voice: 'ชั้น 8 เป็นลานจอดรถยนต์' },
+            '9': { name: 'ชั้น 9', desc: 'งานถ่ายทอดการพยาบาล, ห้องประชุม GSR, SC, VC1, VC2, VC3, หน่วยเวชระเบียน (ขอประวัติการรักษา)', voice: 'ชั้น 9 มีงานถ่ายทอดการพยาบาล ห้องประชุม GSR, SC, VC1, VC2, VC3 และหน่วยเวชระเบียนสำหรับขอประวัติการรักษา ออกจากลิฟต์เดินตรงไปเลี้ยวขวาครับ' },
+            '10': { name: 'ชั้น 10', desc: 'งานวิศวกรรมเครื่องมือแพทย์', voice: 'ชั้น 10 เป็นงานวิศวกรรมเครื่องมือแพทย์' },
+            '11': { name: 'ชั้น 11', desc: 'ห้องประชุมโยธี, ราชพฤกษ์, สุพรรณิการ์, พญาไท, ปาริชาติ, ห้องรับรองวิทยากร (6 ห้อง)', voice: 'ชั้น 11 มีห้องประชุม 6 ห้อง ได้แก่ ห้องประชุมโยธี ราชพฤกษ์ สุพรรณิการ์ พญาไท ปาริชาติ และห้องรับรองวิทยากร' },
+            '12': { name: 'ชั้น 12', desc: 'ห้องประชุมพิบูลสงคราม - ห้องประชุมใหญ่ ความจุ 200 คน', voice: 'ชั้น 12 มีห้องประชุมพิบูลสงคราม เป็นห้องประชุมใหญ่ ความจุ 200 คน' }
+        };
+
+        let locations = [];
+        let currentVoiceText = '';
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            loadLocations();
+            parseURL();
+        });
+
+        function loadLocations() {
+            try {
+                const saved = localStorage.getItem('hospitalMapEditor');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    locations = data.locations || [];
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function parseURL() {
+            const params = new URLSearchParams(window.location.search);
+            const building = params.get('building');
+            const floor = params.get('floor');
+            const room = params.get('room');
+            const dest = params.get('dest');
+            const search = params.get('search');
+
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('content').style.display = 'block';
+
+                if (search) {
+                    handleSearch(search);
+                } else if (dest) {
+                    handleDestination(dest);
+                } else if (room) {
+                    handleRoom(building, floor, room, dest);
+                } else if (building) {
+                    showBuilding(building, floor);
+                } else {
+                    showSearchResults([]);
+                }
+            }, 500);
+        }
+
+        // ==================== HANDLERS ====================
+        async function handleSearch(query) {
+            // Show AI response
+            document.getElementById('ai-response').style.display = 'block';
+            document.getElementById('ai-text').innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังค้นหา...';
+
+            try {
+                const response = await fetch('/api/ai/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: query })
+                });
+                const data = await response.json();
+                document.getElementById('ai-text').textContent = data.response || 'ไม่พบข้อมูล';
+                currentVoiceText = data.response || '';
+            } catch (e) {
+                document.getElementById('ai-text').textContent = 'ไม่สามารถค้นหาได้ในขณะนี้';
+            }
+
+            // Search in locations
+            const results = locations.filter(loc => 
+                loc.name.toLowerCase().includes(query.toLowerCase()) ||
+                loc.code.toLowerCase().includes(query.toLowerCase())
+            );
+            showSearchResults(results);
+        }
+
+        function handleDestination(dest) {
+            const loc = locations.find(l => l.code === dest || l.name.includes(dest));
+            if (loc) {
+                showLocation(loc);
+            } else {
+                // Quick destinations
+                const quickDests = {
+                    'ER': { name: 'ห้องฉุกเฉิน (ER)', building: 'E', floor: '1', voice: 'ห้องฉุกเฉินอยู่ที่ ตึกอุบัติเหตุและฉุกเฉิน EMS ชั้น 1 เปิดให้บริการ 24 ชั่วโมง' },
+                    'OPD': { name: 'แผนกผู้ป่วยนอก (OPD)', building: 'A', floor: '1', voice: 'แผนกผู้ป่วยนอก อยู่ที่อาคารทศมินทราธิราช ชั้น 1' },
+                    'PHARMACY': { name: 'ห้องยา', building: 'A', floor: '1', voice: 'ห้องยา อยู่ที่อาคารทศมินทราธิราช ชั้น 1' },
+                    'CASHIER': { name: 'ห้องการเงิน', building: 'A', floor: '1', voice: 'ห้องการเงิน อยู่ที่อาคารทศมินทราธิราช ชั้น 1' }
+                };
+                const qd = quickDests[dest];
+                if (qd) {
+                    showDestination(qd.name, BUILDINGS[qd.building]?.name, qd.floor, qd.voice);
+                }
+            }
+        }
+
+        function handleRoom(building, floor, room, destName) {
+            const loc = locations.find(l => l.code === room);
+            if (loc) {
+                showLocation(loc);
+            } else if (destName) {
+                const bldName = BUILDINGS[building]?.name || building;
+                showDestination(destName, bldName, floor, `${destName} อยู่ที่ ${bldName} ชั้น ${floor}`);
+            }
+        }
+
+        // ==================== DISPLAY ====================
+        function showLocation(loc) {
+            const bld = BUILDINGS[loc.building];
+            document.getElementById('dest-card').style.display = 'block';
+            document.getElementById('dest-name').textContent = loc.name;
+            document.getElementById('dest-location').textContent = `${bld?.name || loc.building} ชั้น ${loc.floor}`;
+
+            currentVoiceText = loc.voice || `${loc.name} อยู่ที่ ${bld?.name || loc.building} ชั้น ${loc.floor}`;
+            if (loc.note) currentVoiceText += ` ${loc.note}`;
+
+            let directions = `
+                <div class="direction-step">
+                    <div class="step-num">1</div>
+                    <div class="step-content">
+                        <div class="step-text">เดินไปที่ <strong>${bld?.name || loc.building}</strong></div>
+                    </div>
+                </div>
+                <div class="direction-step">
+                    <div class="step-num">2</div>
+                    <div class="step-content">
+                        <div class="step-text">ขึ้นลิฟต์ไป <strong>ชั้น ${loc.floor}</strong></div>
+                    </div>
+                </div>
+                <div class="direction-step">
+                    <div class="step-num">3</div>
+                    <div class="step-content">
+                        <div class="step-text">${loc.note || 'เดินตามป้ายไปยัง ' + loc.name}</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('directions').innerHTML = directions;
+        }
+
+        function showDestination(name, buildingName, floor, voice) {
+            document.getElementById('dest-card').style.display = 'block';
+            document.getElementById('dest-name').textContent = name;
+            document.getElementById('dest-location').textContent = `${buildingName} ชั้น ${floor}`;
+            currentVoiceText = voice;
+
+            document.getElementById('directions').innerHTML = `
+                <div class="direction-step">
+                    <div class="step-num">1</div>
+                    <div class="step-content">
+                        <div class="step-text">เดินไปที่ <strong>${buildingName}</strong></div>
+                    </div>
+                </div>
+                <div class="direction-step">
+                    <div class="step-num">2</div>
+                    <div class="step-content">
+                        <div class="step-text">ขึ้นลิฟต์ไป <strong>ชั้น ${floor}</strong></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showBuilding(buildingCode, selectedFloor) {
+            const bld = BUILDINGS[buildingCode];
+            if (!bld) return;
+
+            document.getElementById('building-section').style.display = 'block';
+            document.getElementById('building-name').textContent = bld.name;
+
+            const floors = bld.floors;
+            document.getElementById('floor-tabs').innerHTML = floors.map(f => 
+                `<div class="floor-tab ${f === (selectedFloor || floors[0]) ? 'active' : ''}" onclick="selectFloor('${buildingCode}', '${f}')">${f}</div>`
+            ).join('');
+
+            selectFloor(buildingCode, selectedFloor || floors[0]);
+        }
+
+        function selectFloor(buildingCode, floor) {
+            document.querySelectorAll('.floor-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.floor-tab:nth-child(${BUILDINGS[buildingCode].floors.indexOf(floor) + 1})`)?.classList.add('active');
+
+            const floorLocs = locations.filter(l => l.building === buildingCode && l.floor === floor);
+            let info = '';
+
+            if (buildingCode === 'CHALERM' && CHALERM_FLOORS[floor]) {
+                const fi = CHALERM_FLOORS[floor];
+                info = `<h5>${fi.name}</h5><p>${fi.desc}</p>`;
+                currentVoiceText = fi.voice || fi.desc;
+            }
+
+            if (floorLocs.length > 0) {
+                info += '<h6 class="mt-3"><i class="fas fa-map-marker-alt me-2" style="color:var(--pink);"></i>จุดบนชั้นนี้</h6>';
+                info += floorLocs.map(loc => `
+                    <div class="result-item" onclick="showLocation(locations.find(l=>l.id===${loc.id}))">
+                        <div class="result-icon" style="background:var(--pink-light);color:var(--pink);"><i class="fas fa-map-pin"></i></div>
+                        <div class="result-info">
+                            <div class="result-name">${loc.name}</div>
+                            <div class="result-location">${loc.note || loc.code}</div>
+                        </div>
+                        <i class="fas fa-chevron-right text-muted"></i>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('floor-info').innerHTML = info || '<p class="text-muted">ไม่มีข้อมูลสำหรับชั้นนี้</p>';
+        }
+
+        function showSearchResults(results) {
+            document.getElementById('search-results').style.display = 'block';
+            if (results.length === 0) {
+                document.getElementById('results-list').innerHTML = '<p class="text-muted">ไม่พบผลลัพธ์ ลองค้นหาคำอื่น</p>';
+                return;
+            }
+
+            document.getElementById('results-list').innerHTML = results.map(loc => {
+                const bld = BUILDINGS[loc.building];
+                return `
+                    <div class="result-item" onclick="showLocation(locations.find(l=>l.id===${loc.id}))">
+                        <div class="result-icon" style="background:var(--pink-light);color:var(--pink);"><i class="fas fa-map-marker-alt"></i></div>
+                        <div class="result-info">
+                            <div class="result-name">${loc.name}</div>
+                            <div class="result-location">${bld?.name || loc.building} ชั้น ${loc.floor}</div>
+                        </div>
+                        <i class="fas fa-chevron-right text-muted"></i>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==================== VOICE ====================
+        function speakDirections() {
+            if (!currentVoiceText) {
+                currentVoiceText = 'กรุณาเลือกจุดหมายปลายทาง';
+            }
+
+            if ('speechSynthesis' in window) {
+                speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(currentVoiceText);
+                utterance.lang = 'th-TH';
+                utterance.rate = 0.85;
+                utterance.pitch = 1;
+                speechSynthesis.speak(utterance);
+            } else {
+                alert('Browser ไม่รองรับเสียงพูด');
+            }
+        }
+    </script>
+</body>
+</html>

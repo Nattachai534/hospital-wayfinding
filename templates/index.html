@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🏥 ระบบนำทาง - โรงพยาบาลราชวิถี</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Sarabun', sans-serif; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root { --pink: #e91e8c; --pink-light: #fce4f1; --pink-dark: #c4177a; }
+        body { background: linear-gradient(180deg, #fce4f1 0%, #fff 50%); margin: 0; min-height: 100vh; }
+        
+        .header { background: linear-gradient(135deg, var(--pink), var(--pink-dark)); color: white; padding: 20px; text-align: center; }
+        .header img { height: 60px; margin-bottom: 10px; }
+        .header h1 { font-size: 22px; margin: 0; font-weight: 700; }
+        .header p { margin: 5px 0 0; opacity: 0.9; font-size: 14px; }
+        
+        .container { max-width: 800px; margin: 0 auto; padding: 15px; }
+        
+        /* Search Box */
+        .search-box { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 20px rgba(233,30,140,0.15); margin-bottom: 20px; }
+        .search-input-wrapper { position: relative; }
+        .search-input { width: 100%; padding: 15px 50px 15px 20px; border: 2px solid #eee; border-radius: 30px; font-size: 16px; outline: none; transition: all 0.3s; }
+        .search-input:focus { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(233,30,140,0.1); }
+        .search-btn { position: absolute; right: 5px; top: 50%; transform: translateY(-50%); width: 45px; height: 45px; border-radius: 50%; background: var(--pink); border: none; color: white; font-size: 18px; cursor: pointer; }
+        .search-btn:hover { background: var(--pink-dark); }
+        
+        /* Quick Actions */
+        .quick-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+        .quick-btn { background: white; border: 2px solid #eee; border-radius: 15px; padding: 15px 10px; text-align: center; cursor: pointer; transition: all 0.3s; text-decoration: none; color: inherit; }
+        .quick-btn:hover { border-color: var(--pink); background: var(--pink-light); transform: translateY(-2px); }
+        .quick-btn i { font-size: 24px; display: block; margin-bottom: 8px; }
+        .quick-btn span { font-size: 12px; font-weight: 600; }
+        .quick-btn.emergency { border-color: #dc3545; }
+        .quick-btn.emergency i { color: #dc3545; }
+        .quick-btn.emergency:hover { background: #ffebee; }
+        
+        @media (max-width: 500px) {
+            .quick-actions { grid-template-columns: repeat(2, 1fr); }
+        }
+        
+        /* Building Grid */
+        .section-title { font-size: 18px; font-weight: 700; color: #333; margin-bottom: 15px; display: flex; align-items: center; }
+        .section-title i { color: var(--pink); margin-right: 10px; }
+        
+        .building-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
+        .building-card { background: white; border-radius: 15px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.3s; border: 2px solid transparent; }
+        .building-card:hover { border-color: var(--pink); transform: translateY(-3px); box-shadow: 0 5px 20px rgba(233,30,140,0.15); }
+        .building-card .icon { width: 45px; height: 45px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 10px; }
+        .building-card .name { font-weight: 700; font-size: 14px; margin-bottom: 3px; line-height: 1.3; }
+        .building-card .info { font-size: 11px; color: #888; }
+        
+        @media (max-width: 500px) {
+            .building-grid { grid-template-columns: 1fr; }
+        }
+        
+        /* AI Chat */
+        .chat-section { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .chat-header { display: flex; align-items: center; margin-bottom: 15px; }
+        .chat-header i { font-size: 24px; color: var(--pink); margin-right: 10px; }
+        .chat-messages { max-height: 300px; overflow-y: auto; margin-bottom: 15px; }
+        .chat-msg { padding: 12px 15px; border-radius: 15px; margin-bottom: 10px; max-width: 85%; }
+        .chat-msg.bot { background: #f0f0f0; border-bottom-left-radius: 5px; }
+        .chat-msg.user { background: var(--pink); color: white; margin-left: auto; border-bottom-right-radius: 5px; }
+        .chat-input-wrapper { display: flex; gap: 10px; }
+        .chat-input { flex: 1; padding: 12px 15px; border: 2px solid #eee; border-radius: 25px; font-size: 14px; outline: none; }
+        .chat-input:focus { border-color: var(--pink); }
+        .chat-send { width: 45px; height: 45px; border-radius: 50%; background: var(--pink); border: none; color: white; cursor: pointer; }
+        
+        /* Footer */
+        .footer { text-align: center; padding: 20px; color: #888; font-size: 12px; }
+        .footer a { color: var(--pink); text-decoration: none; }
+        
+        /* GPS Button */
+        .gps-float { position: fixed; bottom: 80px; right: 20px; width: 55px; height: 55px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; font-size: 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 100; cursor: pointer; }
+        
+        /* Loading */
+        .loading { display: inline-block; width: 20px; height: 20px; border: 2px solid #fff; border-radius: 50%; border-top-color: transparent; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="https://www.rajavithi.go.th/rj/wp-content/uploads/2020/01/logo.png" alt="Logo" onerror="this.style.display='none'">
+        <h1>🏥 ระบบนำทางในโรงพยาบาล</h1>
+        <p>โรงพยาบาลราชวิถี | Rajavithi Hospital</p>
+    </div>
+
+    <div class="container">
+        <!-- Search Box -->
+        <div class="search-box">
+            <div class="search-input-wrapper">
+                <input type="text" class="search-input" id="search-input" placeholder="ค้นหาห้อง, แผนก, หรือถาม AI...">
+                <button class="search-btn" onclick="handleSearch()"><i class="fas fa-search"></i></button>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <a href="/navigate?dest=ER" class="quick-btn emergency">
+                <i class="fas fa-ambulance"></i>
+                <span>ฉุกเฉิน</span>
+            </a>
+            <a href="/navigate?dest=OPD" class="quick-btn">
+                <i class="fas fa-hospital" style="color: #17a2b8;"></i>
+                <span>ผู้ป่วยนอก</span>
+            </a>
+            <a href="/navigate?dest=PHARMACY" class="quick-btn">
+                <i class="fas fa-pills" style="color: #28a745;"></i>
+                <span>ห้องยา</span>
+            </a>
+            <a href="/navigate?dest=CASHIER" class="quick-btn">
+                <i class="fas fa-cash-register" style="color: #fd7e14;"></i>
+                <span>การเงิน</span>
+            </a>
+        </div>
+
+        <!-- Buildings -->
+        <div class="section-title"><i class="fas fa-building"></i>เลือกอาคาร (11 อาคาร)</div>
+        <div class="building-grid">
+            <div class="building-card" onclick="goToBuilding('A')">
+                <div class="icon" style="background: #e3f2fd; color: #1976d2;"><i class="fas fa-building"></i></div>
+                <div class="name">อาคารทศมินทราธิราช</div>
+                <div class="info">25 ชั้น | ตึก A</div>
+            </div>
+            <div class="building-card" onclick="goToBuilding('B')">
+                <div class="icon" style="background: #e8f5e9; color: #388e3c;"><i class="fas fa-building"></i></div>
+                <div class="name">ตึกสิรินธร</div>
+                <div class="info">18 ชั้น | ตึก B</div>
+            </div>
+            <div class="building-card" onclick="goToBuilding('CHALERM')">
+                <div class="icon" style="background: #fce4ec; color: #c2185b;"><i class="fas fa-building"></i></div>
+                <div class="name">อาคารเฉลิมพระเกียรติฯ</div>
+                <div class="info">14 ชั้น (รวมชั้น M) | ห้องประชุม</div>
+            </div>
+            <div class="building-card" onclick="goToBuilding('D')">
+                <div class="icon" style="background: #fff3e0; color: #e65100;"><i class="fas fa-building"></i></div>
+                <div class="name">ตึกอำนวยการ</div>
+                <div class="info">5 ชั้น | ตึก D</div>
+            </div>
+            <div class="building-card" onclick="goToBuilding('E')">
+                <div class="icon" style="background: #ffebee; color: #c62828;"><i class="fas fa-ambulance"></i></div>
+                <div class="name">ตึกอุบัติเหตุและฉุกเฉิน EMS</div>
+                <div class="info">4 ชั้น | ตึก E | ER 24 ชม.</div>
+            </div>
+            <div class="building-card" onclick="goToBuilding('F')">
+                <div class="icon" style="background: #f3e5f5; color: #7b1fa2;"><i class="fas fa-heartbeat"></i></div>
+                <div class="name">ตึกอายุรกรรม</div>
+                <div class="info">6 ชั้น | ตึก F</div>
+            </div>
+            <div class="building-card" onclick="goToBuilding('G')">
+                <div class="icon" style="background: #e0f7fa; color: #00838f;"><i class="fas fa-building"></i></div>
+                <div class="name">ตึกสอาด ศิริพัฒน์</div>
+                <div class="info">8 ชั้น | ตึก G</div>
+            </div>
+            <div class="building-card" onclick="goToBuilding('H')">
+                <div class="icon" style="background: #fff8e1; color: #ff8f00;"><i class="fas fa-building"></i></div>
+                <div class="name">ตึกหลวงชำนาญเนติศาสตร์</div>
+                <div class="info">6 ชั้น | ตึก H</div>
+            </div>
+            <div class="building-card" onclick="goToBuilding('I')">
+                <div class="icon" style="background: #e8eaf6; color: #3949ab;"><i class="fas fa-building"></i></div>
+                <div class="name">ตึกเจริญ พูลวรลักษณ์</div>
+                <div class="info">5 ชั้น | ตึก I</div>
+            </div>
+            <div class="building-card" onclick="goToBuilding('J')">
+                <div class="icon" style="background: #fce4ec; color: #d81b60;"><i class="fas fa-heart"></i></div>
+                <div class="name">ตึกวิเคราะห์โรคหัวใจ</div>
+                <div class="info">4 ชั้น | ตึก J</div>
+            </div>
+            <div class="building-card" onclick="goToBuilding('K')">
+                <div class="icon" style="background: #efebe9; color: #5d4037;"><i class="fas fa-building"></i></div>
+                <div class="name">ตึกวาศอุทิศ</div>
+                <div class="info">3 ชั้น | ตึก K</div>
+            </div>
+        </div>
+
+        <!-- AI Chat -->
+        <div class="chat-section">
+            <div class="chat-header">
+                <i class="fas fa-robot"></i>
+                <div>
+                    <div class="fw-bold">ถาม AI ผู้ช่วยนำทาง</div>
+                    <small class="text-muted">ถามเป็นภาษาไทยได้เลย</small>
+                </div>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="chat-msg bot">
+                    สวัสดีครับ! 👋 ผมคือผู้ช่วยนำทางของโรงพยาบาลราชวิถี<br><br>
+                    ลองถามผมได้เลย เช่น:<br>
+                    • "ห้องประชุมโยธีอยู่ไหน"<br>
+                    • "ห้องฉุกเฉินอยู่ตึกอะไร"<br>
+                    • "ห้องขอประวัติการรักษาอยู่ชั้นไหน"
+                </div>
+            </div>
+            <div class="chat-input-wrapper">
+                <input type="text" class="chat-input" id="chat-input" placeholder="พิมพ์คำถามของคุณ...">
+                <button class="chat-send" onclick="sendChat()"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <a href="/admin"><i class="fas fa-cog me-1"></i>Admin</a> | 
+            <a href="/map-editor"><i class="fas fa-map me-1"></i>Map Editor</a>
+            <p class="mt-2">Hospital Wayfinding System v1.0<br>โรงพยาบาลราชวิถี © 2024</p>
+        </div>
+    </div>
+
+    <!-- GPS Button -->
+    <button class="gps-float" onclick="getMyLocation()" title="ค้นหาตำแหน่งของฉัน"><i class="fas fa-location-crosshairs"></i></button>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Handle search
+        function handleSearch() {
+            const query = document.getElementById('search-input').value.trim();
+            if (query) {
+                window.location.href = `/navigate?search=${encodeURIComponent(query)}`;
+            }
+        }
+        document.getElementById('search-input').addEventListener('keypress', e => { if (e.key === 'Enter') handleSearch(); });
+
+        // Go to building
+        function goToBuilding(code) {
+            window.location.href = `/navigate?building=${code}`;
+        }
+
+        // Chat
+        async function sendChat() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            const messages = document.getElementById('chat-messages');
+            
+            // Add user message
+            messages.innerHTML += `<div class="chat-msg user">${msg}</div>`;
+            input.value = '';
+            messages.scrollTop = messages.scrollHeight;
+
+            // Add loading
+            const loadingId = 'loading-' + Date.now();
+            messages.innerHTML += `<div class="chat-msg bot" id="${loadingId}"><span class="loading"></span> กำลังคิด...</div>`;
+            messages.scrollTop = messages.scrollHeight;
+
+            try {
+                const response = await fetch('/api/ai/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await response.json();
+                
+                document.getElementById(loadingId).remove();
+                messages.innerHTML += `<div class="chat-msg bot">${data.response || data.error || 'ขออภัย ไม่สามารถตอบได้ในขณะนี้'}</div>`;
+                
+                // TTS
+                if (data.response && 'speechSynthesis' in window) {
+                    const utterance = new SpeechSynthesisUtterance(data.response.replace(/<[^>]*>/g, ''));
+                    utterance.lang = 'th-TH';
+                    utterance.rate = 0.9;
+                    speechSynthesis.speak(utterance);
+                }
+            } catch (e) {
+                document.getElementById(loadingId).remove();
+                messages.innerHTML += `<div class="chat-msg bot">ขออภัย เกิดข้อผิดพลาด กรุณาลองใหม่</div>`;
+            }
+            messages.scrollTop = messages.scrollHeight;
+        }
+        document.getElementById('chat-input').addEventListener('keypress', e => { if (e.key === 'Enter') sendChat(); });
+
+        // GPS
+        function getMyLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    pos => {
+                        alert(`📍 ตำแหน่งของคุณ:\nLatitude: ${pos.coords.latitude.toFixed(6)}\nLongitude: ${pos.coords.longitude.toFixed(6)}\n\nความแม่นยำ: ${pos.coords.accuracy.toFixed(0)} เมตร`);
+                    },
+                    err => {
+                        alert('ไม่สามารถดึงตำแหน่งได้: ' + err.message);
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            } else {
+                alert('Browser ไม่รองรับ GPS');
+            }
+        }
+    </script>
+</body>
+</html>

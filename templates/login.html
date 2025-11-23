@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 เข้าสู่ระบบ - รพ.ราชวิถี</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * { font-family: 'Sarabun', sans-serif; }
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .login-logo {
+            width: 80px;
+            margin-bottom: 20px;
+        }
+        .login-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #e91e8c;
+            margin-bottom: 10px;
+        }
+        .login-subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .form-control {
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #eee;
+            font-size: 16px;
+        }
+        .form-control:focus {
+            border-color: #e91e8c;
+            box-shadow: 0 0 0 3px rgba(233,30,140,0.1);
+        }
+        .btn-login {
+            background: linear-gradient(135deg, #e91e8c, #c4177a);
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            width: 100%;
+            color: white;
+            margin-top: 20px;
+        }
+        .btn-login:hover {
+            background: linear-gradient(135deg, #c4177a, #a01365);
+            color: white;
+        }
+        .back-link {
+            display: block;
+            margin-top: 20px;
+            color: #666;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            color: #e91e8c;
+        }
+        .alert {
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #999;
+        }
+        .password-wrapper {
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <img src="https://www.rajavithi.go.th/rj/wp-content/uploads/2020/01/logo.png" alt="Logo" class="login-logo">
+        <div class="login-title">ระบบจัดการ</div>
+        <div class="login-subtitle">โรงพยาบาลราชวิถี</div>
+        
+        <form id="login-form" onsubmit="handleLogin(event)">
+            <div class="password-wrapper">
+                <input type="password" class="form-control" id="password" placeholder="กรอกรหัสผ่าน" required>
+                <i class="fas fa-eye password-toggle" onclick="togglePassword()"></i>
+            </div>
+            
+            <div id="alert-box"></div>
+            
+            <button type="submit" class="btn btn-login" id="btn-login">
+                <i class="fas fa-sign-in-alt me-2"></i>เข้าสู่ระบบ
+            </button>
+        </form>
+        
+        <a href="/" class="back-link">
+            <i class="fas fa-arrow-left me-2"></i>กลับหน้าหลัก
+        </a>
+    </div>
+
+    <script>
+        // Get redirect target from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectTo = urlParams.get('redirect') || '/admin';
+        
+        // Check if already logged in
+        if (sessionStorage.getItem('adminLoggedIn') === 'true') {
+            window.location.href = redirectTo;
+        }
+        
+        function togglePassword() {
+            const input = document.getElementById('password');
+            const icon = document.querySelector('.password-toggle');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+        
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('btn-login');
+            const alertBox = document.getElementById('alert-box');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังตรวจสอบ...';
+            
+            try {
+                const response = await fetch('/api/verify-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    sessionStorage.setItem('adminLoggedIn', 'true');
+                    sessionStorage.setItem('loginTime', new Date().toISOString());
+                    
+                    alertBox.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>เข้าสู่ระบบสำเร็จ!</div>';
+                    
+                    setTimeout(() => {
+                        window.location.href = redirectTo;
+                    }, 500);
+                } else {
+                    alertBox.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>รหัสผ่านไม่ถูกต้อง</div>';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>เข้าสู่ระบบ';
+                }
+            } catch (error) {
+                alertBox.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i>เกิดข้อผิดพลาด กรุณาลองใหม่</div>';
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>เข้าสู่ระบบ';
+            }
+        }
+        
+        // Enter key to submit
+        document.getElementById('password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleLogin(e);
+        });
+    </script>
+</body>
+</html>
