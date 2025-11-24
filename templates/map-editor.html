@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🗺️ Map Editor - รพ.ราชวิถี</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <style>
+        * { font-family: 'Sarabun', sans-serif; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root { --pink: #e91e8c; --pink-light: #fce4f1; }
+        body { background: #f0f0f0; margin: 0; padding: 10px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; background: white; padding: 12px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header h5 { margin: 0; color: var(--pink); font-size: 16px; }
+        
+        .tabs { display: flex; gap: 5px; margin-bottom: 10px; }
+        .tab { padding: 10px 20px; background: white; border: 2px solid #ddd; border-radius: 10px; cursor: pointer; font-weight: 600; }
+        .tab.active { background: var(--pink); color: white; border-color: var(--pink); }
+        .tab:hover { border-color: var(--pink); }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .main-layout { display: flex; gap: 10px; }
+        .map-section { flex: 1; min-width: 0; }
+        .control-section { width: 380px; flex-shrink: 0; max-height: calc(100vh - 150px); overflow-y: auto; }
+        @media (max-width: 1000px) { .main-layout { flex-direction: column; } .control-section { width: 100%; max-height: none; } }
+        
+        .card { background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 10px; overflow: hidden; }
+        .card-header { background: linear-gradient(135deg, var(--pink), #f06ebc); color: white; padding: 10px 12px; font-weight: 600; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+        .card-body { padding: 12px; }
+        
+        .floor-tabs { display: flex; flex-wrap: wrap; gap: 4px; max-height: 80px; overflow-y: auto; }
+        .floor-tab { padding: 5px 10px; border: 2px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-weight: 600; font-size: 12px; }
+        .floor-tab:hover { border-color: var(--pink); }
+        .floor-tab.active { background: var(--pink); color: white; border-color: var(--pink); }
+        .floor-tab.has-data { background: #d4edda; border-color: #28a745; }
+        .floor-tab.has-data.active { background: var(--pink); }
+        
+        .map-container { position: relative; border: 3px solid #ddd; border-radius: 10px; overflow: hidden; background: #f5f5f5; min-height: 400px; }
+        .map-image { width: 100%; display: block; cursor: crosshair; -webkit-user-drag: none; user-select: none; }
+        .markers-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .paths-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        .upload-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; }
+        .upload-overlay.show { display: flex; }
+        .upload-overlay i { font-size: 40px; color: #ccc; margin-bottom: 10px; }
+        
+        .marker { position: absolute; width: 36px; height: 36px; background: var(--pink); border: 3px solid white; border-radius: 50%; transform: translate(-50%, -50%); cursor: grab; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; pointer-events: auto; box-shadow: 0 3px 10px rgba(0,0,0,0.3); z-index: 100; touch-action: none; }
+        .marker:active { cursor: grabbing; }
+        .marker.selected { border-color: #ffc107; box-shadow: 0 0 0 4px rgba(255,193,7,0.5), 0 3px 10px rgba(0,0,0,0.3); z-index: 200; }
+        .marker.dragging { opacity: 0.7; transform: translate(-50%, -50%) scale(1.1); }
+        .marker.waypoint { background: #6c757d; width: 20px; height: 20px; font-size: 8px; }
+        .marker.entrance { background: #28a745; }
+        .marker.lift { background: #fd7e14; }
+        .marker.stairs { background: #20c997; }
+        .marker.conference { background: #6f42c1; }
+        .marker.er { background: #dc3545; }
+        .marker.opd { background: #17a2b8; }
+        .marker.service { background: #6c757d; }
+        .marker.restroom { background: #795548; }
+        .marker.pharmacy { background: #4caf50; }
+        .marker.cashier { background: #ff9800; }
+        .marker.lab { background: #9c27b0; }
+        .marker.xray { background: #00bcd4; }
+        .marker.parking { background: #607d8b; }
+        .marker.food { background: #ff5722; }
+        
+        .marker-label { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 2px 6px; border-radius: 4px; font-size: 9px; white-space: nowrap; margin-top: 3px; pointer-events: none; max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
+        
+        /* Path drawing */
+        .path-line { stroke: #e91e8c; stroke-width: 3; fill: none; stroke-dasharray: 8,4; }
+        .path-line.highlight { stroke: #28a745; stroke-width: 4; stroke-dasharray: none; animation: pathFlow 1s linear infinite; }
+        @keyframes pathFlow { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+        
+        .mode-indicator { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 15px; border-radius: 20px; font-size: 12px; z-index: 500; }
+        .mode-indicator.path-mode { background: #28a745; }
+        
+        .stats-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .stat-box { flex: 1; text-align: center; padding: 8px; background: #f8f9fa; border-radius: 8px; }
+        .stat-value { font-size: 18px; font-weight: 700; color: var(--pink); }
+        .stat-label { font-size: 9px; color: #666; }
+        
+        .location-list { max-height: 180px; overflow-y: auto; }
+        .location-item { display: flex; align-items: center; padding: 6px 8px; border: 2px solid #eee; border-radius: 8px; margin-bottom: 4px; cursor: pointer; font-size: 12px; }
+        .location-item:hover { background: #f8f9fa; border-color: var(--pink); }
+        .location-item.selected { background: var(--pink-light); border-color: var(--pink); }
+        .loc-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--pink); color: white; display: flex; align-items: center; justify-content: center; margin-right: 8px; font-size: 10px; flex-shrink: 0; }
+        .loc-info { flex: 1; min-width: 0; }
+        .loc-name { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .loc-detail { font-size: 9px; color: #666; }
+        
+        .type-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
+        .type-btn { padding: 5px 3px; border: 2px solid #eee; border-radius: 5px; background: white; cursor: pointer; text-align: center; font-size: 9px; }
+        .type-btn:hover { border-color: var(--pink); }
+        .type-btn.selected { background: var(--pink); color: white; border-color: var(--pink); }
+        .type-btn i { display: block; font-size: 12px; margin-bottom: 1px; }
+        
+        .btn-pink { background: var(--pink); border-color: var(--pink); color: white; }
+        .btn-pink:hover { background: #d81b7a; color: white; }
+        
+        .form-control-sm { font-size: 12px; padding: 6px 10px; }
+        
+        /* Connection list */
+        .connection-item { display: flex; align-items: center; padding: 6px; background: #f8f9fa; border-radius: 6px; margin-bottom: 4px; font-size: 11px; }
+        .connection-item i { margin: 0 5px; color: var(--pink); }
+        
+        /* Outdoor map */
+        #outdoor-map { height: 400px; width: 100%; border-radius: 10px; }
+        .outdoor-marker { display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 3px solid white; box-shadow: 0 3px 10px rgba(0,0,0,0.3); color: white; font-weight: 700; }
+        
+        /* GPS Modal */
+        .gps-btn { position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px; border-radius: 50%; background: var(--pink); color: white; border: none; font-size: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 1000; }
+    </style>
+</head>
+<body>
+    <!-- Login -->
+    <div id="login-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;">
+        <div style="background:white;padding:30px;border-radius:15px;text-align:center;max-width:350px;width:90%;">
+            <i class="fas fa-lock" style="font-size:40px;color:#e91e8c;margin-bottom:15px;"></i>
+            <h5>เข้าสู่ระบบ Map Editor</h5>
+            <input type="password" id="login-password" class="form-control my-3" placeholder="กรอกรหัสผ่าน">
+            <button class="btn btn-pink w-100" onclick="checkLogin()"><i class="fas fa-sign-in-alt me-2"></i>เข้าสู่ระบบ</button>
+            <div id="login-error" class="text-danger mt-2" style="display:none;">รหัสผ่านไม่ถูกต้อง</div>
+            <a href="/" class="d-block mt-3 text-muted"><i class="fas fa-arrow-left me-1"></i>กลับหน้าหลัก</a>
+        </div>
+    </div>
+
+    <div id="main-content" style="display:none;">
+        <div class="header">
+            <h5><i class="fas fa-map-marked-alt me-2"></i>Map Editor - ระบบนำทาง</h5>
+            <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-outline-success btn-sm" onclick="exportData()"><i class="fas fa-download me-1"></i>Export</button>
+                <button class="btn btn-outline-primary btn-sm" onclick="importData()"><i class="fas fa-upload me-1"></i>Import</button>
+                <a href="/" class="btn btn-outline-secondary btn-sm"><i class="fas fa-home me-1"></i>หน้าหลัก</a>
+                <button class="btn btn-outline-danger btn-sm" onclick="logout()"><i class="fas fa-sign-out-alt"></i></button>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('indoor')"><i class="fas fa-door-open me-1"></i>Floor Plan (ภายในตึก)</div>
+            <div class="tab" onclick="switchTab('outdoor')"><i class="fas fa-road me-1"></i>Outdoor Map (ระหว่างตึก)</div>
+            <div class="tab" onclick="switchTab('connections')"><i class="fas fa-project-diagram me-1"></i>เชื่อมต่อจุด</div>
+        </div>
+
+        <!-- Tab: Indoor Floor Plan -->
+        <div id="tab-indoor" class="tab-content active">
+            <div class="main-layout">
+                <div class="map-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <span><i class="fas fa-building me-2"></i>เลือกอาคารและชั้น</span>
+                            <div>
+                                <button class="btn btn-light btn-sm me-1" onclick="togglePathMode()" id="btn-path-mode"><i class="fas fa-route me-1"></i>วาดเส้นทาง</button>
+                                <button class="btn btn-light btn-sm" onclick="uploadFloorPlan()"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex gap-2 mb-2">
+                                <select class="form-select form-select-sm" id="building-select" onchange="onBuildingChange()"></select>
+                                <input type="file" id="floor-plan-input" accept="image/*" hidden onchange="handleFloorPlanUpload(event)">
+                            </div>
+                            <div class="floor-tabs" id="floor-tabs"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-body p-0">
+                            <div class="map-container" id="map-container">
+                                <div id="mode-indicator" class="mode-indicator" style="display:none;"><i class="fas fa-mouse-pointer me-1"></i>โหมด: เพิ่มจุด</div>
+                                <img src="" class="map-image" id="map-image">
+                                <svg class="paths-layer" id="paths-layer"></svg>
+                                <div class="markers-layer" id="markers-layer"></div>
+                                <div class="upload-overlay show" id="upload-overlay" onclick="uploadFloorPlan()">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <div class="text-muted">คลิกเพื่ออัปโหลด Floor Plan</div>
+                                    <small class="text-muted">รูปแผนผังชั้นของตึก</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <div class="stats-row">
+                        <div class="stat-box"><div class="stat-value" id="stat-total">0</div><div class="stat-label">จุดทั้งหมด</div></div>
+                        <div class="stat-box"><div class="stat-value" id="stat-paths">0</div><div class="stat-label">เส้นทาง</div></div>
+                        <div class="stat-box"><div class="stat-value" id="stat-floor">0</div><div class="stat-label">ชั้นนี้</div></div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header"><span><i class="fas fa-list me-2"></i>จุดบนชั้นนี้</span><span class="badge bg-light text-dark" id="loc-count">0</span></div>
+                        <div class="card-body p-2"><div class="location-list" id="location-list"></div></div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header"><i class="fas fa-plus-circle me-2"></i><span id="form-title">เพิ่มจุดใหม่</span></div>
+                        <div class="card-body">
+                            <form id="location-form" onsubmit="onFormSubmit(event)">
+                                <div class="row mb-2">
+                                    <div class="col-7"><input type="text" class="form-control form-control-sm" id="inp-name" placeholder="ชื่อจุด *" required></div>
+                                    <div class="col-5"><input type="text" class="form-control form-control-sm" id="inp-code" placeholder="รหัส *" required></div>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col-6"><input type="number" class="form-control form-control-sm" id="inp-x" placeholder="X %" step="0.1" required></div>
+                                    <div class="col-6"><input type="number" class="form-control form-control-sm" id="inp-y" placeholder="Y %" step="0.1" required></div>
+                                </div>
+                                <div class="mb-2"><label class="form-label small fw-bold mb-1">ประเภท</label><div class="type-grid" id="type-grid"></div></div>
+                                <div class="mb-2"><input type="text" class="form-control form-control-sm" id="inp-note" placeholder="คำอธิบายทาง (เดินตรงไป, เลี้ยวซ้าย)"></div>
+                                <div class="mb-2"><input type="text" class="form-control form-control-sm" id="inp-voice" placeholder="ข้อความเสียงนำทาง"></div>
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-pink btn-sm flex-fill" id="btn-submit"><i class="fas fa-plus me-1"></i>เพิ่ม</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetForm()" id="btn-cancel" style="display:none;"><i class="fas fa-times"></i></button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteSelected()" id="btn-delete" style="display:none;"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header"><i class="fas fa-route me-2"></i>เส้นทางจากจุดนี้</div>
+                        <div class="card-body p-2">
+                            <div id="point-connections" style="max-height:100px;overflow-y:auto;"></div>
+                            <small class="text-muted d-block mt-2"><i class="fas fa-info-circle me-1"></i>ใช้โหมด "วาดเส้นทาง" เพื่อเชื่อมจุด</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Outdoor Map -->
+        <div id="tab-outdoor" class="tab-content">
+            <div class="main-layout">
+                <div class="map-section">
+                    <div class="card">
+                        <div class="card-header"><i class="fas fa-map me-2"></i>แผนที่ภายนอก (ระหว่างตึก)</div>
+                        <div class="card-body p-0">
+                            <div id="outdoor-map"></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
+                            <p class="small mb-2"><i class="fas fa-info-circle me-1 text-info"></i>คลิกบนแผนที่เพื่อเพิ่มจุดทางเดินระหว่างตึก</p>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-primary btn-sm" onclick="addOutdoorWaypoint()"><i class="fas fa-plus me-1"></i>เพิ่ม Waypoint</button>
+                                <button class="btn btn-outline-success btn-sm" onclick="toggleOutdoorPathMode()"><i class="fas fa-route me-1"></i>วาดเส้นทาง</button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="clearOutdoorPaths()"><i class="fas fa-trash me-1"></i>ลบเส้นทาง</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="control-section">
+                    <div class="card">
+                        <div class="card-header"><i class="fas fa-building me-2"></i>ตำแหน่งอาคาร</div>
+                        <div class="card-body">
+                            <div id="building-list" style="max-height:300px;overflow-y:auto;"></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header"><i class="fas fa-walking me-2"></i>ทางเดินระหว่างตึก</div>
+                        <div class="card-body">
+                            <div id="outdoor-paths-list" style="max-height:200px;overflow-y:auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Connections -->
+        <div id="tab-connections" class="tab-content">
+            <div class="main-layout">
+                <div class="map-section">
+                    <div class="card">
+                        <div class="card-header"><i class="fas fa-project-diagram me-2"></i>เชื่อมต่อจุดข้ามชั้น/ตึก</div>
+                        <div class="card-body">
+                            <p class="small text-muted mb-3">เชื่อมต่อลิฟต์, บันได, ทางเข้าตึก เพื่อให้ระบบคำนวณเส้นทางข้ามชั้นและข้ามตึกได้</p>
+                            
+                            <div class="row mb-3">
+                                <div class="col-5">
+                                    <label class="form-label small fw-bold">จุดเริ่มต้น</label>
+                                    <select class="form-select form-select-sm" id="conn-from"></select>
+                                </div>
+                                <div class="col-2 text-center" style="padding-top:30px;">
+                                    <i class="fas fa-arrow-right fa-lg text-muted"></i>
+                                </div>
+                                <div class="col-5">
+                                    <label class="form-label small fw-bold">จุดปลายทาง</label>
+                                    <select class="form-select form-select-sm" id="conn-to"></select>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <label class="form-label small">ประเภทการเชื่อมต่อ</label>
+                                    <select class="form-select form-select-sm" id="conn-type">
+                                        <option value="lift">ลิฟต์</option>
+                                        <option value="stairs">บันได</option>
+                                        <option value="walkway">ทางเดิน</option>
+                                        <option value="entrance">ทางเข้า/ออก</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">เวลาเดิน (วินาที)</label>
+                                    <input type="number" class="form-control form-control-sm" id="conn-time" value="30">
+                                </div>
+                            </div>
+                            
+                            <button class="btn btn-pink btn-sm w-100" onclick="addConnection()"><i class="fas fa-link me-1"></i>เพิ่มการเชื่อมต่อ</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="control-section">
+                    <div class="card">
+                        <div class="card-header"><i class="fas fa-list me-2"></i>การเชื่อมต่อทั้งหมด (<span id="conn-count">0</span>)</div>
+                        <div class="card-body">
+                            <div id="connections-list" style="max-height:400px;overflow-y:auto;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal fade" id="importModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header"><h6 class="modal-title">Import ข้อมูล</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body"><textarea class="form-control" id="import-json" rows="8" placeholder="วาง JSON..."></textarea></div>
+                <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button><button class="btn btn-primary btn-sm" onclick="doImport()">Import</button></div>
+            </div>
+        </div>
+    </div>
+
+    <button class="gps-btn" onclick="getGPS()" title="ดึงพิกัด GPS"><i class="fas fa-location-crosshairs"></i></button>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ==================== CONFIG ====================
+        const BUILDINGS = [
+            { code: 'A', name: 'อาคารทศมินทราธิราช', floors: ['B1','G','M','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21','22','23','24','25'], lat: 13.76520, lng: 100.53450, color: '#1976d2' },
+            { code: 'B', name: 'ตึกสิรินธร', floors: ['G','1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18'], lat: 13.76480, lng: 100.53550, color: '#388e3c' },
+            { code: 'CHALERM', name: 'อาคารเฉลิมพระเกียรติฯ', floors: ['G','1','M','2','3','4','5','6','7','8','9','10','11','12'], lat: 13.76450, lng: 100.53400, color: '#c2185b' },
+            { code: 'D', name: 'ตึกอำนวยการ', floors: ['G','1','2','3','4','5'], lat: 13.76500, lng: 100.53500, color: '#e65100' },
+            { code: 'E', name: 'ตึกฉุกเฉิน EMS', floors: ['G','1','2','3','4'], lat: 13.76470, lng: 100.53600, color: '#c62828' },
+            { code: 'F', name: 'ตึกอายุรกรรม', floors: ['G','1','2','3','4','5','6'], lat: 13.76420, lng: 100.53520, color: '#7b1fa2' },
+            { code: 'G', name: 'ตึกสอาด ศิริพัฒน์', floors: ['G','1','2','3','4','5','6','7','8'], lat: 13.76550, lng: 100.53420, color: '#00838f' },
+            { code: 'H', name: 'ตึกหลวงชำนาญฯ', floors: ['G','1','2','3','4','5','6'], lat: 13.76400, lng: 100.53450, color: '#ff8f00' },
+            { code: 'I', name: 'ตึกเจริญฯ', floors: ['G','1','2','3','4','5'], lat: 13.76380, lng: 100.53500, color: '#3949ab' },
+            { code: 'J', name: 'ตึกวิเคราะห์หัวใจ', floors: ['G','1','2','3','4'], lat: 13.76580, lng: 100.53550, color: '#d81b60' },
+            { code: 'K', name: 'ตึกวาศอุทิศ', floors: ['G','1','2','3'], lat: 13.76350, lng: 100.53550, color: '#5d4037' }
+        ];
+        
+        const LOCATION_TYPES = [
+            { code: 'entrance', name: 'ทางเข้า', icon: 'door-open', color: '#28a745' },
+            { code: 'lift', name: 'ลิฟต์', icon: 'elevator', color: '#fd7e14' },
+            { code: 'stairs', name: 'บันได', icon: 'stairs', color: '#20c997' },
+            { code: 'conference', name: 'ประชุม', icon: 'users', color: '#6f42c1' },
+            { code: 'er', name: 'ฉุกเฉิน', icon: 'ambulance', color: '#dc3545' },
+            { code: 'opd', name: 'OPD', icon: 'hospital', color: '#17a2b8' },
+            { code: 'service', name: 'บริการ', icon: 'concierge-bell', color: '#6c757d' },
+            { code: 'restroom', name: 'ห้องน้ำ', icon: 'restroom', color: '#795548' },
+            { code: 'pharmacy', name: 'ห้องยา', icon: 'pills', color: '#4caf50' },
+            { code: 'cashier', name: 'การเงิน', icon: 'cash-register', color: '#ff9800' },
+            { code: 'lab', name: 'Lab', icon: 'flask', color: '#9c27b0' },
+            { code: 'xray', name: 'X-Ray', icon: 'x-ray', color: '#00bcd4' },
+            { code: 'parking', name: 'จอดรถ', icon: 'car', color: '#607d8b' },
+            { code: 'food', name: 'อาหาร', icon: 'utensils', color: '#ff5722' },
+            { code: 'waypoint', name: 'จุดผ่าน', icon: 'circle', color: '#6c757d' }
+        ];
+        
+        // Data
+        let locations = [];
+        let paths = [];           // {from: id, to: id, floor, building}
+        let connections = [];     // Cross-floor/building connections
+        let outdoorPaths = [];    // Outdoor walkways
+        let floorImages = {};
+        
+        let currentBuilding = 'CHALERM', currentFloor = '11';
+        let selectedId = null, editingId = null, selectedType = 'service';
+        let pathMode = false, pathStart = null;
+        let isDragging = false, dragMarkerId = null;
+        
+        let outdoorMap = null;
+        let outdoorPathMode = false, outdoorPathStart = null;
+        let buildingMarkers = {};
+
+        // ==================== LOGIN ====================
+        function checkLogin() {
+            const pw = document.getElementById('login-password').value;
+            if (pw === 'rajavithi2024') {
+                sessionStorage.setItem('adminLoggedIn', 'true');
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                init();
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        }
+        
+        function logout() { sessionStorage.removeItem('adminLoggedIn'); location.reload(); }
+        document.getElementById('login-password').addEventListener('keypress', e => { if (e.key === 'Enter') checkLogin(); });
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            if (sessionStorage.getItem('adminLoggedIn') === 'true') {
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('main-content').style.display = 'block';
+                init();
+            }
+        });
+
+        function init() {
+            loadFromStorage();
+            initUI();
+            render();
+            setupEvents();
+        }
+
+        function initUI() {
+            document.getElementById('building-select').innerHTML = BUILDINGS.map(b => `<option value="${b.code}">${b.name}</option>`).join('');
+            document.getElementById('building-select').value = currentBuilding;
+            renderTypeGrid();
+            renderFloorTabs();
+            updateMapImage();
+            populateConnectionDropdowns();
+        }
+
+        function renderTypeGrid() {
+            document.getElementById('type-grid').innerHTML = LOCATION_TYPES.map(t => 
+                `<div class="type-btn ${selectedType === t.code ? 'selected' : ''}" onclick="selectType('${t.code}')">
+                    <i class="fas fa-${t.icon}" style="color:${selectedType === t.code ? 'white' : t.color}"></i>${t.name}
+                </div>`
+            ).join('');
+        }
+
+        function selectType(type) { selectedType = type; renderTypeGrid(); }
+
+        // ==================== TABS ====================
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach((t, i) => {
+                t.classList.toggle('active', ['indoor','outdoor','connections'][i] === tab);
+            });
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            
+            if (tab === 'outdoor' && !outdoorMap) {
+                setTimeout(initOutdoorMap, 100);
+            }
+            if (tab === 'connections') {
+                populateConnectionDropdowns();
+                renderConnectionsList();
+            }
+        }
+
+        // ==================== BUILDING & FLOOR ====================
+        function onBuildingChange() {
+            currentBuilding = document.getElementById('building-select').value;
+            const bld = BUILDINGS.find(b => b.code === currentBuilding);
+            currentFloor = bld?.floors[0] || '1';
+            renderFloorTabs();
+            updateMapImage();
+            render();
+        }
+
+        function renderFloorTabs() {
+            const bld = BUILDINGS.find(b => b.code === currentBuilding);
+            const floors = bld?.floors || ['1'];
+            document.getElementById('floor-tabs').innerHTML = floors.map(f => {
+                const hasData = locations.some(l => l.building === currentBuilding && l.floor === f);
+                return `<div class="floor-tab ${f === currentFloor ? 'active' : ''} ${hasData && f !== currentFloor ? 'has-data' : ''}" onclick="selectFloor('${f}')">${f}</div>`;
+            }).join('');
+        }
+
+        function selectFloor(floor) {
+            currentFloor = floor;
+            selectedId = editingId = null;
+            pathStart = null;
+            resetForm();
+            renderFloorTabs();
+            updateMapImage();
+            render();
+        }
+
+        function updateMapImage() {
+            const key = `${currentBuilding}_${currentFloor}`;
+            const img = document.getElementById('map-image');
+            const overlay = document.getElementById('upload-overlay');
+            if (floorImages[key]) {
+                img.src = floorImages[key];
+                overlay.classList.remove('show');
+            } else {
+                img.src = '';
+                overlay.classList.add('show');
+            }
+        }
+
+        // ==================== FLOOR PLAN UPLOAD ====================
+        function uploadFloorPlan() { document.getElementById('floor-plan-input').click(); }
+        function handleFloorPlanUpload(e) {
+            if (e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    floorImages[`${currentBuilding}_${currentFloor}`] = ev.target.result;
+                    updateMapImage();
+                    saveToStorage();
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        }
+
+        // ==================== EVENTS ====================
+        function setupEvents() {
+            const img = document.getElementById('map-image');
+            img.addEventListener('click', onMapClick);
+            
+            const container = document.getElementById('map-container');
+            container.addEventListener('dragover', e => e.preventDefault());
+            container.addEventListener('drop', e => {
+                e.preventDefault();
+                if (e.dataTransfer.files[0]?.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                        floorImages[`${currentBuilding}_${currentFloor}`] = ev.target.result;
+                        updateMapImage();
+                        saveToStorage();
+                    };
+                    reader.readAsDataURL(e.dataTransfer.files[0]);
+                }
+            });
+        }
+
+        function getCoords(e) {
+            const img = document.getElementById('map-image');
+            const rect = img.getBoundingClientRect();
+            return {
+                x: Math.max(0, Math.min(100, (e.clientX - rect.left) / rect.width * 100)),
+                y: Math.max(0, Math.min(100, (e.clientY - rect.top) / rect.height * 100))
+            };
+        }
+
+        function onMapClick(e) {
+            if (isDragging) return;
+            const coords = getCoords(e);
+            
+            if (pathMode && pathStart) {
+                // End path drawing - need to click on a marker
+                return;
+            }
+            
+            document.getElementById('inp-x').value = coords.x.toFixed(1);
+            document.getElementById('inp-y').value = coords.y.toFixed(1);
+            document.getElementById('inp-name').focus();
+        }
+
+        // ==================== PATH MODE ====================
+        function togglePathMode() {
+            pathMode = !pathMode;
+            pathStart = null;
+            const btn = document.getElementById('btn-path-mode');
+            const indicator = document.getElementById('mode-indicator');
+            
+            if (pathMode) {
+                btn.classList.add('btn-success');
+                btn.classList.remove('btn-light');
+                indicator.style.display = 'block';
+                indicator.className = 'mode-indicator path-mode';
+                indicator.innerHTML = '<i class="fas fa-route me-1"></i>โหมด: วาดเส้นทาง (คลิกจุดเริ่ม)';
+            } else {
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-light');
+                indicator.style.display = 'none';
+            }
+            render();
+        }
+
+        function onMarkerClick(id, e) {
+            e.stopPropagation();
+            
+            if (pathMode) {
+                if (!pathStart) {
+                    pathStart = id;
+                    document.getElementById('mode-indicator').innerHTML = '<i class="fas fa-route me-1"></i>คลิกจุดปลายทาง';
+                    render();
+                } else if (pathStart !== id) {
+                    // Create path
+                    const existing = paths.find(p => 
+                        (p.from === pathStart && p.to === id) || 
+                        (p.from === id && p.to === pathStart)
+                    );
+                    if (!existing) {
+                        paths.push({
+                            from: pathStart,
+                            to: id,
+                            building: currentBuilding,
+                            floor: currentFloor
+                        });
+                        saveToStorage();
+                    }
+                    pathStart = id; // Continue drawing
+                    render();
+                }
+            } else {
+                selectLocation(id);
+            }
+        }
+
+        // ==================== RENDER ====================
+        function render() {
+            renderMarkers();
+            renderPaths();
+            renderLocationList();
+            renderPointConnections();
+            updateStats();
+        }
+
+        function renderMarkers() {
+            const layer = document.getElementById('markers-layer');
+            const floorLocs = locations.filter(l => l.building === currentBuilding && l.floor === currentFloor);
+            
+            layer.innerHTML = floorLocs.map(loc => {
+                const type = LOCATION_TYPES.find(t => t.code === loc.type) || LOCATION_TYPES[14];
+                const isPathStart = pathMode && pathStart === loc.id;
+                return `<div class="marker ${loc.type} ${selectedId === loc.id ? 'selected' : ''} ${isPathStart ? 'selected' : ''}" 
+                    style="left:${loc.x}%;top:${loc.y}%;background:${type.color}" 
+                    data-id="${loc.id}"
+                    onclick="onMarkerClick(${loc.id}, event)"
+                    onmousedown="startDrag(${loc.id}, event)"
+                    ontouchstart="startDrag(${loc.id}, event)">
+                    <i class="fas fa-${type.icon}"></i>
+                    <div class="marker-label">${loc.name}</div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderPaths() {
+            const svg = document.getElementById('paths-layer');
+            const floorPaths = paths.filter(p => p.building === currentBuilding && p.floor === currentFloor);
+            
+            let pathsHtml = '';
+            floorPaths.forEach(p => {
+                const from = locations.find(l => l.id === p.from);
+                const to = locations.find(l => l.id === p.to);
+                if (from && to) {
+                    pathsHtml += `<line class="path-line" x1="${from.x}%" y1="${from.y}%" x2="${to.x}%" y2="${to.y}%"/>`;
+                }
+            });
+            svg.innerHTML = pathsHtml;
+        }
+
+        function renderLocationList() {
+            const list = document.getElementById('location-list');
+            const floorLocs = locations.filter(l => l.building === currentBuilding && l.floor === currentFloor);
+            document.getElementById('loc-count').textContent = floorLocs.length;
+
+            if (!floorLocs.length) {
+                list.innerHTML = '<div class="text-center text-muted p-3"><i class="fas fa-map-marker-alt fa-2x mb-2 opacity-25"></i><div>ยังไม่มีจุด</div></div>';
+                return;
+            }
+
+            list.innerHTML = floorLocs.map(loc => {
+                const type = LOCATION_TYPES.find(t => t.code === loc.type) || LOCATION_TYPES[14];
+                return `<div class="location-item ${selectedId === loc.id ? 'selected' : ''}" onclick="selectLocation(${loc.id})">
+                    <div class="loc-icon" style="background:${type.color}"><i class="fas fa-${type.icon}"></i></div>
+                    <div class="loc-info">
+                        <div class="loc-name">${loc.name}</div>
+                        <div class="loc-detail">${loc.code} | X:${loc.x.toFixed(0)} Y:${loc.y.toFixed(0)}</div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderPointConnections() {
+            const container = document.getElementById('point-connections');
+            if (!selectedId) {
+                container.innerHTML = '<div class="text-muted small">เลือกจุดเพื่อดูเส้นทาง</div>';
+                return;
+            }
+            
+            const connectedPaths = paths.filter(p => p.from === selectedId || p.to === selectedId);
+            if (!connectedPaths.length) {
+                container.innerHTML = '<div class="text-muted small">ยังไม่มีเส้นทางจากจุดนี้</div>';
+                return;
+            }
+            
+            container.innerHTML = connectedPaths.map(p => {
+                const otherId = p.from === selectedId ? p.to : p.from;
+                const other = locations.find(l => l.id === otherId);
+                return `<div class="connection-item">
+                    <span>${other?.name || 'Unknown'}</span>
+                    <button class="btn btn-outline-danger btn-sm ms-auto" onclick="deletePath(${p.from}, ${p.to})"><i class="fas fa-times"></i></button>
+                </div>`;
+            }).join('');
+        }
+
+        function updateStats() {
+            document.getElementById('stat-total').textContent = locations.length;
+            document.getElementById('stat-paths').textContent = paths.length;
+            document.getElementById('stat-floor').textContent = locations.filter(l => l.building === currentBuilding && l.floor === currentFloor).length;
+        }
+
+        // ==================== CRUD ====================
+        function onFormSubmit(e) {
+            e.preventDefault();
+            const data = {
+                name: document.getElementById('inp-name').value.trim(),
+                code: document.getElementById('inp-code').value.trim().toUpperCase(),
+                x: parseFloat(document.getElementById('inp-x').value),
+                y: parseFloat(document.getElementById('inp-y').value),
+                type: selectedType,
+                building: currentBuilding,
+                floor: currentFloor,
+                note: document.getElementById('inp-note').value.trim(),
+                voice: document.getElementById('inp-voice').value.trim()
+            };
+
+            if (editingId) {
+                const loc = locations.find(l => l.id === editingId);
+                if (loc) Object.assign(loc, data);
+            } else {
+                data.id = locations.length ? Math.max(...locations.map(l => l.id)) + 1 : 1;
+                locations.push(data);
+            }
+
+            resetForm();
+            render();
+            saveToStorage();
+        }
+
+        function selectLocation(id) {
+            selectedId = editingId = id;
+            const loc = locations.find(l => l.id === id);
+            if (loc) {
+                document.getElementById('inp-name').value = loc.name;
+                document.getElementById('inp-code').value = loc.code;
+                document.getElementById('inp-x').value = loc.x.toFixed(1);
+                document.getElementById('inp-y').value = loc.y.toFixed(1);
+                document.getElementById('inp-note').value = loc.note || '';
+                document.getElementById('inp-voice').value = loc.voice || '';
+                selectedType = loc.type;
+                renderTypeGrid();
+                document.getElementById('form-title').textContent = 'แก้ไขจุด';
+                document.getElementById('btn-submit').innerHTML = '<i class="fas fa-save me-1"></i>บันทึก';
+                document.getElementById('btn-cancel').style.display = 'block';
+                document.getElementById('btn-delete').style.display = 'block';
+            }
+            render();
+        }
+
+        function deleteSelected() {
+            if (editingId && confirm('ลบจุดนี้?')) {
+                // Remove paths connected to this point
+                paths = paths.filter(p => p.from !== editingId && p.to !== editingId);
+                locations = locations.filter(l => l.id !== editingId);
+                resetForm();
+                render();
+                saveToStorage();
+            }
+        }
+
+        function deletePath(from, to) {
+            paths = paths.filter(p => !(p.from === from && p.to === to) && !(p.from === to && p.to === from));
+            render();
+            saveToStorage();
+        }
+
+        function resetForm() {
+            document.getElementById('location-form').reset();
+            document.getElementById('form-title').textContent = 'เพิ่มจุดใหม่';
+            document.getElementById('btn-submit').innerHTML = '<i class="fas fa-plus me-1"></i>เพิ่ม';
+            document.getElementById('btn-cancel').style.display = 'none';
+            document.getElementById('btn-delete').style.display = 'none';
+            selectedId = editingId = null;
+            selectedType = 'service';
+            renderTypeGrid();
+            render();
+        }
+
+        // ==================== DRAG ====================
+        function startDrag(id, e) {
+            if (pathMode) return;
+            e.preventDefault();
+            isDragging = true;
+            dragMarkerId = id;
+            
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchmove', onDrag, { passive: false });
+            document.addEventListener('touchend', endDrag);
+        }
+
+        function onDrag(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            const img = document.getElementById('map-image');
+            const rect = img.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            const x = Math.max(0, Math.min(100, (clientX - rect.left) / rect.width * 100));
+            const y = Math.max(0, Math.min(100, (clientY - rect.top) / rect.height * 100));
+            
+            const loc = locations.find(l => l.id === dragMarkerId);
+            if (loc) {
+                loc.x = x;
+                loc.y = y;
+                render();
+            }
+        }
+
+        function endDrag() {
+            isDragging = false;
+            dragMarkerId = null;
+            saveToStorage();
+            document.removeEventListener('mousemove', onDrag);
+            document.removeEventListener('mouseup', endDrag);
+            document.removeEventListener('touchmove', onDrag);
+            document.removeEventListener('touchend', endDrag);
+        }
+
+        // ==================== OUTDOOR MAP ====================
+        function initOutdoorMap() {
+            if (outdoorMap) return;
+            
+            outdoorMap = L.map('outdoor-map').setView([13.76472, 100.53528], 17);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(outdoorMap);
+
+            // Add building markers
+            BUILDINGS.forEach(bld => {
+                const marker = L.circleMarker([bld.lat, bld.lng], {
+                    radius: 20,
+                    fillColor: bld.color,
+                    color: '#fff',
+                    weight: 3,
+                    fillOpacity: 0.9
+                }).addTo(outdoorMap);
+
+                marker.bindPopup(`<b>${bld.name}</b><br>รหัส: ${bld.code}`);
+                marker.on('click', () => onOutdoorMarkerClick(bld));
+                buildingMarkers[bld.code] = marker;
+            });
+
+            renderBuildingList();
+            renderOutdoorPaths();
+        }
+
+        function renderBuildingList() {
+            document.getElementById('building-list').innerHTML = BUILDINGS.map(b => 
+                `<div class="connection-item">
+                    <div style="width:15px;height:15px;background:${b.color};border-radius:50%;margin-right:8px;"></div>
+                    <span>${b.code} - ${b.name}</span>
+                </div>`
+            ).join('');
+        }
+
+        function onOutdoorMarkerClick(bld) {
+            if (outdoorPathMode) {
+                if (!outdoorPathStart) {
+                    outdoorPathStart = bld.code;
+                } else if (outdoorPathStart !== bld.code) {
+                    const existing = outdoorPaths.find(p => 
+                        (p.from === outdoorPathStart && p.to === bld.code) ||
+                        (p.from === bld.code && p.to === outdoorPathStart)
+                    );
+                    if (!existing) {
+                        outdoorPaths.push({ from: outdoorPathStart, to: bld.code });
+                        renderOutdoorPaths();
+                        saveToStorage();
+                    }
+                    outdoorPathStart = bld.code;
+                }
+            }
+        }
+
+        function toggleOutdoorPathMode() {
+            outdoorPathMode = !outdoorPathMode;
+            outdoorPathStart = null;
+        }
+
+        function renderOutdoorPaths() {
+            // Clear existing
+            outdoorMap.eachLayer(layer => {
+                if (layer instanceof L.Polyline && !(layer instanceof L.CircleMarker)) {
+                    outdoorMap.removeLayer(layer);
+                }
+            });
+
+            outdoorPaths.forEach(p => {
+                const from = BUILDINGS.find(b => b.code === p.from);
+                const to = BUILDINGS.find(b => b.code === p.to);
+                if (from && to) {
+                    L.polyline([[from.lat, from.lng], [to.lat, to.lng]], {
+                        color: '#e91e8c',
+                        weight: 4,
+                        dashArray: '10, 10'
+                    }).addTo(outdoorMap);
+                }
+            });
+
+            document.getElementById('outdoor-paths-list').innerHTML = outdoorPaths.map((p, i) => 
+                `<div class="connection-item">
+                    <span>${p.from}</span><i class="fas fa-arrow-right"></i><span>${p.to}</span>
+                    <button class="btn btn-outline-danger btn-sm ms-auto" onclick="deleteOutdoorPath(${i})"><i class="fas fa-times"></i></button>
+                </div>`
+            ).join('') || '<div class="text-muted small">ยังไม่มีเส้นทาง</div>';
+        }
+
+        function deleteOutdoorPath(idx) {
+            outdoorPaths.splice(idx, 1);
+            renderOutdoorPaths();
+            saveToStorage();
+        }
+
+        function clearOutdoorPaths() {
+            if (confirm('ลบเส้นทางทั้งหมด?')) {
+                outdoorPaths = [];
+                renderOutdoorPaths();
+                saveToStorage();
+            }
+        }
+
+        // ==================== CONNECTIONS ====================
+        function populateConnectionDropdowns() {
+            const options = locations.map(l => {
+                const bld = BUILDINGS.find(b => b.code === l.building);
+                return `<option value="${l.id}">[${l.building}-${l.floor}] ${l.name}</option>`;
+            }).join('');
+            
+            document.getElementById('conn-from').innerHTML = '<option value="">เลือกจุด...</option>' + options;
+            document.getElementById('conn-to').innerHTML = '<option value="">เลือกจุด...</option>' + options;
+        }
+
+        function addConnection() {
+            const from = parseInt(document.getElementById('conn-from').value);
+            const to = parseInt(document.getElementById('conn-to').value);
+            const type = document.getElementById('conn-type').value;
+            const time = parseInt(document.getElementById('conn-time').value) || 30;
+            
+            if (!from || !to || from === to) {
+                alert('กรุณาเลือกจุดให้ถูกต้อง');
+                return;
+            }
+            
+            const existing = connections.find(c => 
+                (c.from === from && c.to === to) || (c.from === to && c.to === from)
+            );
+            if (existing) {
+                alert('มีการเชื่อมต่อนี้แล้ว');
+                return;
+            }
+            
+            connections.push({ from, to, type, time });
+            renderConnectionsList();
+            saveToStorage();
+        }
+
+        function renderConnectionsList() {
+            document.getElementById('conn-count').textContent = connections.length;
+            
+            document.getElementById('connections-list').innerHTML = connections.map((c, i) => {
+                const fromLoc = locations.find(l => l.id === c.from);
+                const toLoc = locations.find(l => l.id === c.to);
+                const typeNames = { lift: 'ลิฟต์', stairs: 'บันได', walkway: 'ทางเดิน', entrance: 'ทางเข้า/ออก' };
+                return `<div class="connection-item">
+                    <div style="flex:1;">
+                        <div class="small fw-bold">${fromLoc?.name || 'Unknown'}</div>
+                        <div style="font-size:10px;color:#888;">[${fromLoc?.building}-${fromLoc?.floor}]</div>
+                    </div>
+                    <div class="text-center" style="width:60px;">
+                        <i class="fas fa-arrow-right text-muted"></i>
+                        <div style="font-size:9px;color:#888;">${typeNames[c.type]}</div>
+                    </div>
+                    <div style="flex:1;text-align:right;">
+                        <div class="small fw-bold">${toLoc?.name || 'Unknown'}</div>
+                        <div style="font-size:10px;color:#888;">[${toLoc?.building}-${toLoc?.floor}]</div>
+                    </div>
+                    <button class="btn btn-outline-danger btn-sm ms-2" onclick="deleteConnection(${i})"><i class="fas fa-times"></i></button>
+                </div>`;
+            }).join('') || '<div class="text-muted text-center p-3">ยังไม่มีการเชื่อมต่อ</div>';
+        }
+
+        function deleteConnection(idx) {
+            connections.splice(idx, 1);
+            renderConnectionsList();
+            saveToStorage();
+        }
+
+        // ==================== GPS ====================
+        function getGPS() {
+            if (!navigator.geolocation) {
+                alert('Browser ไม่รองรับ GPS');
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    alert(`พิกัดปัจจุบัน:\nLat: ${pos.coords.latitude.toFixed(6)}\nLng: ${pos.coords.longitude.toFixed(6)}`);
+                },
+                err => alert('ไม่สามารถดึงพิกัด: ' + err.message),
+                { enableHighAccuracy: true }
+            );
+        }
+
+        // ==================== STORAGE ====================
+        function saveToStorage() {
+            localStorage.setItem('hospitalMapEditor', JSON.stringify({
+                locations, paths, connections, outdoorPaths, floorImages,
+                currentBuilding, currentFloor
+            }));
+        }
+
+        function loadFromStorage() {
+            try {
+                const saved = localStorage.getItem('hospitalMapEditor');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    locations = data.locations || [];
+                    paths = data.paths || [];
+                    connections = data.connections || [];
+                    outdoorPaths = data.outdoorPaths || [];
+                    floorImages = data.floorImages || {};
+                    if (data.currentBuilding) currentBuilding = data.currentBuilding;
+                    if (data.currentFloor) currentFloor = data.currentFloor;
+                }
+            } catch (e) { console.error(e); }
+            
+            if (!locations.length) loadDefaultData();
+        }
+
+        function loadDefaultData() {
+            // Sample data for CHALERM floor 11
+            locations = [
+                { id: 1, name: 'ลิฟต์ A', code: 'LIFT-A', building: 'CHALERM', floor: '11', type: 'lift', x: 15, y: 50, note: 'ลิฟต์ฝั่งซ้าย' },
+                { id: 2, name: 'ลิฟต์ B', code: 'LIFT-B', building: 'CHALERM', floor: '11', type: 'lift', x: 85, y: 50, note: 'ลิฟต์ฝั่งขวา' },
+                { id: 3, name: 'ห้องประชุมโยธี', code: 'YOTHI', building: 'CHALERM', floor: '11', type: 'conference', x: 25, y: 30, note: 'ออกลิฟต์ A เลี้ยวขวา' },
+                { id: 4, name: 'ห้องประชุมราชพฤกษ์', code: 'RATCHAPHRUEK', building: 'CHALERM', floor: '11', type: 'conference', x: 40, y: 30, note: 'ถัดจากห้องโยธี' },
+                { id: 5, name: 'ห้องประชุมสุพรรณิการ์', code: 'SUPHANNIKA', building: 'CHALERM', floor: '11', type: 'conference', x: 55, y: 30, note: 'กลางอาคาร' },
+                { id: 6, name: 'ห้องประชุมพญาไท', code: 'PHAYATHAI', building: 'CHALERM', floor: '11', type: 'conference', x: 70, y: 30, note: 'ใกล้ลิฟต์ B' },
+                { id: 7, name: 'ห้องประชุมปาริชาติ', code: 'PARICHAT', building: 'CHALERM', floor: '11', type: 'conference', x: 40, y: 70, note: 'ฝั่งใต้' },
+                { id: 8, name: 'ห้องรับรองวิทยากร', code: 'VIP', building: 'CHALERM', floor: '11', type: 'service', x: 60, y: 70, note: 'ข้างห้องปาริชาติ' },
+                { id: 9, name: 'ทางเดินกลาง', code: 'HALL-1', building: 'CHALERM', floor: '11', type: 'waypoint', x: 50, y: 50, note: '' },
+                // Floor 9
+                { id: 10, name: 'หน่วยเวชระเบียน', code: 'MED_REC', building: 'CHALERM', floor: '9', type: 'service', x: 70, y: 40, note: 'ออกลิฟต์เดินตรงไปเลี้ยวขวา', voice: 'หน่วยเวชระเบียนอยู่ชั้น 9 ออกจากลิฟต์เดินตรงไปเลี้ยวขวาครับ' },
+                { id: 11, name: 'ลิฟต์ A', code: 'LIFT-A-9', building: 'CHALERM', floor: '9', type: 'lift', x: 15, y: 50, note: '' },
+                // Building E
+                { id: 12, name: 'ห้องฉุกเฉิน', code: 'ER', building: 'E', floor: '1', type: 'er', x: 50, y: 50, note: 'เปิด 24 ชม.', voice: 'ห้องฉุกเฉินอยู่ตึก E ชั้น 1 เปิดให้บริการ 24 ชั่วโมง' }
+            ];
+            
+            // Sample paths
+            paths = [
+                { from: 1, to: 9, building: 'CHALERM', floor: '11' },
+                { from: 9, to: 2, building: 'CHALERM', floor: '11' },
+                { from: 1, to: 3, building: 'CHALERM', floor: '11' },
+                { from: 3, to: 4, building: 'CHALERM', floor: '11' },
+                { from: 4, to: 5, building: 'CHALERM', floor: '11' },
+                { from: 5, to: 6, building: 'CHALERM', floor: '11' },
+                { from: 6, to: 2, building: 'CHALERM', floor: '11' },
+                { from: 9, to: 7, building: 'CHALERM', floor: '11' },
+                { from: 7, to: 8, building: 'CHALERM', floor: '11' }
+            ];
+            
+            // Connections (lifts between floors)
+            connections = [
+                { from: 1, to: 11, type: 'lift', time: 20 } // Lift A floor 11 to floor 9
+            ];
+            
+            // Outdoor paths
+            outdoorPaths = [
+                { from: 'CHALERM', to: 'E' },
+                { from: 'E', to: 'B' },
+                { from: 'CHALERM', to: 'A' }
+            ];
+            
+            saveToStorage();
+        }
+
+        // ==================== IMPORT/EXPORT ====================
+        function exportData() {
+            const data = { locations, paths, connections, outdoorPaths, floorImages, exportedAt: new Date().toISOString() };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `hospital-map-${new Date().toISOString().slice(0,10)}.json`;
+            link.click();
+        }
+
+        function importData() { new bootstrap.Modal(document.getElementById('importModal')).show(); }
+
+        function doImport() {
+            try {
+                const data = JSON.parse(document.getElementById('import-json').value);
+                if (data.locations) locations = data.locations;
+                if (data.paths) paths = data.paths;
+                if (data.connections) connections = data.connections;
+                if (data.outdoorPaths) outdoorPaths = data.outdoorPaths;
+                if (data.floorImages) floorImages = data.floorImages;
+                saveToStorage();
+                init();
+                bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+                alert('✅ Import สำเร็จ!');
+            } catch (e) { alert('❌ JSON ไม่ถูกต้อง'); }
+        }
+    </script>
+</body>
+</html>

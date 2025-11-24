@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🗺️ นำทาง - โรงพยาบาลราชวิถี</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { font-family: 'Sarabun', sans-serif; box-sizing: border-box; }
+        :root { --pink: #e91e8c; --pink-light: #fce4f1; }
+        body { background: #f5f5f5; margin: 0; padding-bottom: 80px; }
+        
+        .header { background: linear-gradient(135deg, var(--pink), #c4177a); color: white; padding: 12px 15px; position: sticky; top: 0; z-index: 100; }
+        .header-content { display: flex; align-items: center; justify-content: space-between; max-width: 900px; margin: 0 auto; }
+        .back-btn { color: white; font-size: 20px; text-decoration: none; }
+        .header h1 { font-size: 16px; margin: 0; }
+        
+        .container { max-width: 900px; margin: 0 auto; padding: 10px; }
+        
+        /* Route Selection */
+        .route-selection { background: white; border-radius: 15px; padding: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .route-input { display: flex; align-items: center; margin-bottom: 10px; }
+        .route-input i { width: 30px; text-align: center; color: var(--pink); font-size: 18px; }
+        .route-input select, .route-input input { flex: 1; padding: 10px 12px; border: 2px solid #eee; border-radius: 10px; font-size: 14px; }
+        .route-input select:focus, .route-input input:focus { border-color: var(--pink); outline: none; }
+        .swap-btn { background: none; border: none; color: #888; cursor: pointer; padding: 5px 10px; }
+        .swap-btn:hover { color: var(--pink); }
+        
+        .route-btn { background: var(--pink); color: white; border: none; padding: 12px; border-radius: 10px; width: 100%; font-weight: 600; font-size: 16px; cursor: pointer; }
+        .route-btn:hover { background: #c4177a; }
+        .route-btn:disabled { background: #ccc; }
+        
+        /* Route Summary */
+        .route-summary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; border-radius: 15px; padding: 15px; margin-bottom: 15px; }
+        .route-summary h5 { margin: 0 0 10px; font-size: 16px; }
+        .route-stats { display: flex; justify-content: space-around; text-align: center; }
+        .route-stat-value { font-size: 24px; font-weight: 700; }
+        .route-stat-label { font-size: 11px; opacity: 0.9; }
+        
+        /* Map Tabs */
+        .map-tabs { display: flex; gap: 5px; margin-bottom: 10px; overflow-x: auto; padding-bottom: 5px; }
+        .map-tab { padding: 8px 15px; background: white; border: 2px solid #ddd; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap; display: flex; align-items: center; gap: 5px; }
+        .map-tab.active { background: var(--pink); color: white; border-color: var(--pink); }
+        .map-tab .badge { background: rgba(255,255,255,0.3); padding: 2px 6px; border-radius: 10px; font-size: 10px; }
+        
+        /* Map Container */
+        .map-card { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .map-card-header { background: #f8f9fa; padding: 10px 15px; font-weight: 600; font-size: 14px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        #outdoor-nav-map { height: 250px; }
+        .floor-plan-container { position: relative; min-height: 250px; }
+        .floor-plan-img { width: 100%; display: block; }
+        .floor-plan-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
+        .floor-plan-overlay svg { width: 100%; height: 100%; }
+        .floor-plan-marker { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; }
+        .floor-marker { width: 30px; height: 30px; border-radius: 50%; border: 3px solid white; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer; }
+        .floor-marker.start { background: #28a745; }
+        .floor-marker.end { background: #dc3545; }
+        .floor-marker.waypoint { background: #6c757d; }
+        .floor-marker.current { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(233,30,140,0.5); } 50% { box-shadow: 0 0 0 10px rgba(233,30,140,0); } }
+        
+        .no-floor-plan { text-align: center; padding: 40px; color: #888; }
+        .no-floor-plan i { font-size: 40px; margin-bottom: 10px; opacity: 0.3; }
+        
+        /* Route path on floor plan */
+        .route-path { stroke: #e91e8c; stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+        .route-path.animated { stroke-dasharray: 10, 10; animation: dash 1s linear infinite; }
+        @keyframes dash { to { stroke-dashoffset: -20; } }
+        
+        /* Directions */
+        .directions-card { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .directions-header { background: linear-gradient(135deg, var(--pink), #c4177a); color: white; padding: 12px 15px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+        .directions-list { max-height: 300px; overflow-y: auto; }
+        .direction-step { display: flex; padding: 12px 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.2s; }
+        .direction-step:hover { background: #f8f9fa; }
+        .direction-step.active { background: var(--pink-light); border-left: 4px solid var(--pink); }
+        .step-icon { width: 40px; height: 40px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; margin-right: 12px; font-size: 16px; flex-shrink: 0; }
+        .step-icon.walk { background: #e3f2fd; color: #1976d2; }
+        .step-icon.lift { background: #fff3e0; color: #e65100; }
+        .step-icon.stairs { background: #e8f5e9; color: #388e3c; }
+        .step-icon.turn { background: #fce4ec; color: #c2185b; }
+        .step-icon.dest { background: #dc3545; color: white; }
+        .step-icon.start { background: #28a745; color: white; }
+        .step-content { flex: 1; }
+        .step-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+        .step-detail { font-size: 12px; color: #666; }
+        .step-time { font-size: 11px; color: #888; margin-top: 2px; }
+        
+        /* Bottom Actions */
+        .bottom-actions { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 10px 15px; box-shadow: 0 -4px 15px rgba(0,0,0,0.1); display: flex; gap: 10px; }
+        .action-btn { flex: 1; padding: 12px; border-radius: 10px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .action-btn.primary { background: var(--pink); color: white; }
+        .action-btn.secondary { background: #f0f0f0; color: #333; }
+        
+        /* Loading */
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; flex-direction: column; z-index: 1000; }
+        .loading-overlay.hidden { display: none; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #eee; border-top-color: var(--pink); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <p class="mt-3">กำลังคำนวณเส้นทาง...</p>
+    </div>
+
+    <div class="header">
+        <div class="header-content">
+            <a href="/" class="back-btn"><i class="fas fa-arrow-left"></i></a>
+            <h1><i class="fas fa-route me-2"></i>ระบบนำทาง</h1>
+            <button onclick="speakAll()" style="background:none;border:none;color:white;font-size:18px;"><i class="fas fa-volume-up"></i></button>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Route Selection -->
+        <div class="route-selection">
+            <div class="route-input">
+                <i class="fas fa-circle" style="color:#28a745;font-size:12px;"></i>
+                <select id="start-select">
+                    <option value="">เลือกจุดเริ่มต้น...</option>
+                    <option value="GPS">📍 ตำแหน่งปัจจุบัน (GPS)</option>
+                </select>
+            </div>
+            <div class="text-center"><button class="swap-btn" onclick="swapLocations()"><i class="fas fa-exchange-alt fa-rotate-90"></i></button></div>
+            <div class="route-input">
+                <i class="fas fa-map-marker-alt"></i>
+                <select id="end-select">
+                    <option value="">เลือกจุดหมาย...</option>
+                </select>
+            </div>
+            <button class="route-btn" onclick="calculateRoute()" id="route-btn"><i class="fas fa-route me-2"></i>ค้นหาเส้นทาง</button>
+        </div>
+
+        <!-- Route Summary (hidden initially) -->
+        <div class="route-summary" id="route-summary" style="display:none;">
+            <h5><i class="fas fa-flag-checkered me-2"></i><span id="dest-name">ปลายทาง</span></h5>
+            <div class="route-stats">
+                <div><div class="route-stat-value" id="total-time">-</div><div class="route-stat-label">นาที</div></div>
+                <div><div class="route-stat-value" id="total-steps">-</div><div class="route-stat-label">ขั้นตอน</div></div>
+                <div><div class="route-stat-value" id="total-floors">-</div><div class="route-stat-label">ชั้น</div></div>
+            </div>
+        </div>
+
+        <!-- Map Tabs -->
+        <div class="map-tabs" id="map-tabs" style="display:none;">
+            <div class="map-tab active" onclick="showMapTab('outdoor')" data-tab="outdoor">
+                <i class="fas fa-map"></i>ภาพรวม
+            </div>
+        </div>
+
+        <!-- Maps Container -->
+        <div id="maps-container" style="display:none;">
+            <!-- Outdoor Map -->
+            <div class="map-card" id="outdoor-map-card">
+                <div class="map-card-header">
+                    <span><i class="fas fa-road me-2"></i>เส้นทางระหว่างตึก</span>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="centerOutdoorMap()"><i class="fas fa-expand"></i></button>
+                </div>
+                <div id="outdoor-nav-map"></div>
+            </div>
+
+            <!-- Floor Plans -->
+            <div id="floor-plans-container"></div>
+        </div>
+
+        <!-- Directions -->
+        <div class="directions-card" id="directions-card" style="display:none;">
+            <div class="directions-header">
+                <span><i class="fas fa-list-ol me-2"></i>ขั้นตอนการเดิน</span>
+                <span class="badge bg-light text-dark" id="steps-count">0 ขั้นตอน</span>
+            </div>
+            <div class="directions-list" id="directions-list"></div>
+        </div>
+    </div>
+
+    <!-- Bottom Actions -->
+    <div class="bottom-actions">
+        <button class="action-btn secondary" onclick="window.location.href='/'"><i class="fas fa-home"></i>หน้าหลัก</button>
+        <button class="action-btn primary" onclick="speakAll()"><i class="fas fa-volume-up"></i>ฟังเสียงนำทาง</button>
+    </div>
+
+    <script>
+        // ==================== CONFIG ====================
+        const BUILDINGS = {
+            'A': { name: 'อาคารทศมินทราธิราช', lat: 13.76520, lng: 100.53450, color: '#1976d2' },
+            'B': { name: 'ตึกสิรินธร', lat: 13.76480, lng: 100.53550, color: '#388e3c' },
+            'CHALERM': { name: 'อาคารเฉลิมพระเกียรติฯ', lat: 13.76450, lng: 100.53400, color: '#c2185b' },
+            'D': { name: 'ตึกอำนวยการ', lat: 13.76500, lng: 100.53500, color: '#e65100' },
+            'E': { name: 'ตึกฉุกเฉิน EMS', lat: 13.76470, lng: 100.53600, color: '#c62828' },
+            'F': { name: 'ตึกอายุรกรรม', lat: 13.76420, lng: 100.53520, color: '#7b1fa2' },
+            'G': { name: 'ตึกสอาด ศิริพัฒน์', lat: 13.76550, lng: 100.53420, color: '#00838f' },
+            'H': { name: 'ตึกหลวงชำนาญฯ', lat: 13.76400, lng: 100.53450, color: '#ff8f00' },
+            'I': { name: 'ตึกเจริญฯ', lat: 13.76380, lng: 100.53500, color: '#3949ab' },
+            'J': { name: 'ตึกวิเคราะห์หัวใจ', lat: 13.76580, lng: 100.53550, color: '#d81b60' },
+            'K': { name: 'ตึกวาศอุทิศ', lat: 13.76350, lng: 100.53550, color: '#5d4037' }
+        };
+
+        const TYPE_ICONS = {
+            'entrance': 'door-open', 'lift': 'elevator', 'stairs': 'stairs',
+            'conference': 'users', 'er': 'ambulance', 'opd': 'hospital',
+            'service': 'concierge-bell', 'restroom': 'restroom', 'pharmacy': 'pills',
+            'cashier': 'cash-register', 'lab': 'flask', 'xray': 'x-ray',
+            'parking': 'car', 'food': 'utensils', 'waypoint': 'circle', 'room': 'door-closed'
+        };
+
+        let locations = [], paths = [], connections = [], outdoorPaths = [], floorImages = {};
+        let outdoorMap = null;
+        let currentRoute = null;
+        let currentStepIndex = 0;
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            populateSelects();
+            parseURL();
+            hideLoading();
+        });
+
+        function loadData() {
+            try {
+                const saved = localStorage.getItem('hospitalMapEditor');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    locations = data.locations || [];
+                    paths = data.paths || [];
+                    connections = data.connections || [];
+                    outdoorPaths = data.outdoorPaths || [];
+                    floorImages = data.floorImages || {};
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function populateSelects() {
+            const startSelect = document.getElementById('start-select');
+            const endSelect = document.getElementById('end-select');
+            
+            // Group by building
+            const grouped = {};
+            locations.forEach(loc => {
+                if (!grouped[loc.building]) grouped[loc.building] = [];
+                grouped[loc.building].push(loc);
+            });
+
+            let optionsHtml = '';
+            Object.entries(grouped).forEach(([bldCode, locs]) => {
+                const bldName = BUILDINGS[bldCode]?.name || bldCode;
+                optionsHtml += `<optgroup label="${bldName}">`;
+                locs.forEach(loc => {
+                    optionsHtml += `<option value="${loc.id}">[${loc.floor}] ${loc.name}</option>`;
+                });
+                optionsHtml += '</optgroup>';
+            });
+
+            startSelect.innerHTML = '<option value="">เลือกจุดเริ่มต้น...</option><option value="GPS">📍 ตำแหน่งปัจจุบัน (GPS)</option>' + optionsHtml;
+            endSelect.innerHTML = '<option value="">เลือกจุดหมาย...</option>' + optionsHtml;
+        }
+
+        function parseURL() {
+            const params = new URLSearchParams(window.location.search);
+            const dest = params.get('dest');
+            const room = params.get('room');
+            const building = params.get('building');
+            const search = params.get('search');
+
+            if (room) {
+                const loc = locations.find(l => l.code === room);
+                if (loc) document.getElementById('end-select').value = loc.id;
+            } else if (dest) {
+                const loc = locations.find(l => l.code === dest || l.name.includes(dest));
+                if (loc) document.getElementById('end-select').value = loc.id;
+            }
+
+            if (building) {
+                const bldLocs = locations.filter(l => l.building === building);
+                if (bldLocs.length > 0) {
+                    // Show building info
+                }
+            }
+        }
+
+        function swapLocations() {
+            const start = document.getElementById('start-select');
+            const end = document.getElementById('end-select');
+            const temp = start.value;
+            start.value = end.value;
+            end.value = temp;
+        }
+
+        // ==================== ROUTE CALCULATION ====================
+        function calculateRoute() {
+            const startVal = document.getElementById('start-select').value;
+            const endVal = document.getElementById('end-select').value;
+
+            if (!startVal || !endVal) {
+                alert('กรุณาเลือกจุดเริ่มต้นและปลายทาง');
+                return;
+            }
+
+            showLoading();
+
+            setTimeout(() => {
+                if (startVal === 'GPS') {
+                    // Get GPS location first
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            pos => {
+                                const nearestStart = findNearestLocation(pos.coords.latitude, pos.coords.longitude);
+                                if (nearestStart) {
+                                    computeRoute(nearestStart.id, parseInt(endVal));
+                                } else {
+                                    hideLoading();
+                                    alert('ไม่พบจุดใกล้เคียง กรุณาเลือกจุดเริ่มต้นเอง');
+                                }
+                            },
+                            err => {
+                                hideLoading();
+                                alert('ไม่สามารถดึงตำแหน่ง GPS: ' + err.message);
+                            }
+                        );
+                    }
+                } else {
+                    computeRoute(parseInt(startVal), parseInt(endVal));
+                }
+            }, 500);
+        }
+
+        function findNearestLocation(lat, lng) {
+            let nearest = null;
+            let minDist = Infinity;
+            
+            locations.forEach(loc => {
+                const bld = BUILDINGS[loc.building];
+                if (bld) {
+                    const dist = Math.sqrt(Math.pow(lat - bld.lat, 2) + Math.pow(lng - bld.lng, 2));
+                    if (dist < minDist) {
+                        minDist = dist;
+                        nearest = loc;
+                    }
+                }
+            });
+            
+            return nearest;
+        }
+
+        function computeRoute(startId, endId) {
+            const startLoc = locations.find(l => l.id === startId);
+            const endLoc = locations.find(l => l.id === endId);
+
+            if (!startLoc || !endLoc) {
+                hideLoading();
+                alert('ไม่พบข้อมูลจุด');
+                return;
+            }
+
+            // Build route using BFS/Dijkstra
+            const route = findPath(startId, endId);
+            
+            if (!route || route.length === 0) {
+                // Create simple direct route
+                currentRoute = createSimpleRoute(startLoc, endLoc);
+            } else {
+                currentRoute = buildRouteSteps(route, startLoc, endLoc);
+            }
+
+            displayRoute();
+            hideLoading();
+        }
+
+        function findPath(startId, endId) {
+            // Build adjacency list from paths and connections
+            const graph = {};
+            
+            // Add paths (same floor)
+            paths.forEach(p => {
+                if (!graph[p.from]) graph[p.from] = [];
+                if (!graph[p.to]) graph[p.to] = [];
+                graph[p.from].push({ to: p.to, type: 'walk' });
+                graph[p.to].push({ to: p.from, type: 'walk' });
+            });
+
+            // Add connections (cross-floor/building)
+            connections.forEach(c => {
+                if (!graph[c.from]) graph[c.from] = [];
+                if (!graph[c.to]) graph[c.to] = [];
+                graph[c.from].push({ to: c.to, type: c.type });
+                graph[c.to].push({ to: c.from, type: c.type });
+            });
+
+            // BFS to find path
+            const queue = [[startId]];
+            const visited = new Set([startId]);
+
+            while (queue.length > 0) {
+                const path = queue.shift();
+                const current = path[path.length - 1];
+
+                if (current === endId) {
+                    return path;
+                }
+
+                const neighbors = graph[current] || [];
+                for (const neighbor of neighbors) {
+                    if (!visited.has(neighbor.to)) {
+                        visited.add(neighbor.to);
+                        queue.push([...path, neighbor.to]);
+                    }
+                }
+            }
+
+            return null; // No path found
+        }
+
+        function buildRouteSteps(path, startLoc, endLoc) {
+            const steps = [];
+            let totalTime = 0;
+            const floorsVisited = new Set();
+
+            // Start step
+            steps.push({
+                type: 'start',
+                icon: 'flag',
+                title: 'จุดเริ่มต้น',
+                detail: `${startLoc.name} (${BUILDINGS[startLoc.building]?.name} ชั้น ${startLoc.floor})`,
+                location: startLoc,
+                time: 0
+            });
+            floorsVisited.add(`${startLoc.building}_${startLoc.floor}`);
+
+            // Build steps from path
+            for (let i = 0; i < path.length - 1; i++) {
+                const fromLoc = locations.find(l => l.id === path[i]);
+                const toLoc = locations.find(l => l.id === path[i + 1]);
+
+                if (!fromLoc || !toLoc) continue;
+
+                floorsVisited.add(`${toLoc.building}_${toLoc.floor}`);
+
+                // Check if crossing floors/buildings
+                if (fromLoc.building !== toLoc.building) {
+                    // Cross building
+                    const conn = connections.find(c => 
+                        (c.from === fromLoc.id && c.to === toLoc.id) ||
+                        (c.from === toLoc.id && c.to === fromLoc.id)
+                    );
+                    
+                    steps.push({
+                        type: 'exit',
+                        icon: 'door-open',
+                        title: 'ออกจากตึก',
+                        detail: `ออกจาก${BUILDINGS[fromLoc.building]?.name}`,
+                        location: fromLoc,
+                        time: 30
+                    });
+                    
+                    steps.push({
+                        type: 'outdoor',
+                        icon: 'walking',
+                        title: `เดินไป${BUILDINGS[toLoc.building]?.name}`,
+                        detail: 'เดินตามทางเดินระหว่างตึก',
+                        fromBuilding: fromLoc.building,
+                        toBuilding: toLoc.building,
+                        time: 120
+                    });
+                    
+                    steps.push({
+                        type: 'enter',
+                        icon: 'door-open',
+                        title: 'เข้าตึก',
+                        detail: `เข้า${BUILDINGS[toLoc.building]?.name}`,
+                        location: toLoc,
+                        time: 30
+                    });
+                    
+                    totalTime += 180;
+                } else if (fromLoc.floor !== toLoc.floor) {
+                    // Cross floor
+                    const conn = connections.find(c => 
+                        (c.from === fromLoc.id && c.to === toLoc.id) ||
+                        (c.from === toLoc.id && c.to === fromLoc.id)
+                    );
+                    const connType = conn?.type || 'lift';
+                    
+                    if (connType === 'lift') {
+                        steps.push({
+                            type: 'lift',
+                            icon: 'elevator',
+                            title: `ขึ้น/ลงลิฟต์ไปชั้น ${toLoc.floor}`,
+                            detail: fromLoc.note || 'ใช้ลิฟต์',
+                            location: fromLoc,
+                            targetFloor: toLoc.floor,
+                            time: conn?.time || 30
+                        });
+                    } else {
+                        steps.push({
+                            type: 'stairs',
+                            icon: 'stairs',
+                            title: `ขึ้น/ลงบันไดไปชั้น ${toLoc.floor}`,
+                            detail: fromLoc.note || 'ใช้บันได',
+                            location: fromLoc,
+                            targetFloor: toLoc.floor,
+                            time: conn?.time || 45
+                        });
+                    }
+                    totalTime += conn?.time || 30;
+                } else {
+                    // Same floor - walk
+                    steps.push({
+                        type: 'walk',
+                        icon: 'walking',
+                        title: toLoc.note || `เดินไป${toLoc.name}`,
+                        detail: toLoc.type === 'waypoint' ? 'ผ่านจุดนี้' : `ไปที่ ${toLoc.name}`,
+                        location: toLoc,
+                        time: 20
+                    });
+                    totalTime += 20;
+                }
+            }
+
+            // End step
+            steps.push({
+                type: 'dest',
+                icon: 'flag-checkered',
+                title: 'ถึงปลายทาง!',
+                detail: `${endLoc.name} (${BUILDINGS[endLoc.building]?.name} ชั้น ${endLoc.floor})`,
+                location: endLoc,
+                time: 0
+            });
+
+            return {
+                steps,
+                totalTime,
+                floorsVisited: Array.from(floorsVisited),
+                startLoc,
+                endLoc
+            };
+        }
+
+        function createSimpleRoute(startLoc, endLoc) {
+            const steps = [];
+            let totalTime = 0;
+            const floorsVisited = new Set();
+
+            floorsVisited.add(`${startLoc.building}_${startLoc.floor}`);
+            floorsVisited.add(`${endLoc.building}_${endLoc.floor}`);
+
+            // Start
+            steps.push({
+                type: 'start',
+                icon: 'flag',
+                title: 'จุดเริ่มต้น',
+                detail: `${startLoc.name} (${BUILDINGS[startLoc.building]?.name} ชั้น ${startLoc.floor})`,
+                location: startLoc,
+                time: 0
+            });
+
+            // If different buildings
+            if (startLoc.building !== endLoc.building) {
+                steps.push({
+                    type: 'outdoor',
+                    icon: 'walking',
+                    title: `เดินไป${BUILDINGS[endLoc.building]?.name}`,
+                    detail: 'เดินตามทางเดินระหว่างตึก',
+                    fromBuilding: startLoc.building,
+                    toBuilding: endLoc.building,
+                    time: 180
+                });
+                totalTime += 180;
+            }
+
+            // If different floors
+            if (startLoc.floor !== endLoc.floor) {
+                steps.push({
+                    type: 'lift',
+                    icon: 'elevator',
+                    title: `ขึ้น/ลงลิฟต์ไปชั้น ${endLoc.floor}`,
+                    detail: 'ใช้ลิฟต์',
+                    location: endLoc,
+                    targetFloor: endLoc.floor,
+                    time: 30
+                });
+                totalTime += 30;
+            }
+
+            // Walk to destination
+            if (endLoc.note) {
+                steps.push({
+                    type: 'walk',
+                    icon: 'walking',
+                    title: endLoc.note,
+                    detail: `ไปที่ ${endLoc.name}`,
+                    location: endLoc,
+                    time: 60
+                });
+            }
+            totalTime += 60;
+
+            // End
+            steps.push({
+                type: 'dest',
+                icon: 'flag-checkered',
+                title: 'ถึงปลายทาง!',
+                detail: `${endLoc.name}`,
+                location: endLoc,
+                time: 0
+            });
+
+            return {
+                steps,
+                totalTime,
+                floorsVisited: Array.from(floorsVisited),
+                startLoc,
+                endLoc
+            };
+        }
+
+        // ==================== DISPLAY ====================
+        function displayRoute() {
+            if (!currentRoute) return;
+
+            // Show summary
+            document.getElementById('route-summary').style.display = 'block';
+            document.getElementById('dest-name').textContent = currentRoute.endLoc.name;
+            document.getElementById('total-time').textContent = Math.ceil(currentRoute.totalTime / 60);
+            document.getElementById('total-steps').textContent = currentRoute.steps.length;
+            document.getElementById('total-floors').textContent = currentRoute.floorsVisited.length;
+
+            // Show map tabs
+            document.getElementById('map-tabs').style.display = 'flex';
+            renderMapTabs();
+
+            // Show maps
+            document.getElementById('maps-container').style.display = 'block';
+            initOutdoorMap();
+            renderOutdoorRoute();
+            renderFloorPlans();
+
+            // Show directions
+            document.getElementById('directions-card').style.display = 'block';
+            renderDirections();
+        }
+
+        function renderMapTabs() {
+            const tabs = document.getElementById('map-tabs');
+            let html = '<div class="map-tab active" onclick="showMapTab(\'outdoor\')" data-tab="outdoor"><i class="fas fa-map"></i>ภาพรวม</div>';
+
+            currentRoute.floorsVisited.forEach(key => {
+                const [building, floor] = key.split('_');
+                const bldName = building === 'CHALERM' ? 'เฉลิมฯ' : building;
+                html += `<div class="map-tab" onclick="showMapTab('${key}')" data-tab="${key}"><i class="fas fa-layer-group"></i>${bldName} ชั้น ${floor}</div>`;
+            });
+
+            tabs.innerHTML = html;
+        }
+
+        function showMapTab(tab) {
+            document.querySelectorAll('.map-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+            
+            document.getElementById('outdoor-map-card').style.display = tab === 'outdoor' ? 'block' : 'none';
+            document.querySelectorAll('.floor-plan-card').forEach(el => {
+                el.style.display = el.dataset.floor === tab ? 'block' : 'none';
+            });
+
+            if (tab === 'outdoor' && outdoorMap) {
+                setTimeout(() => outdoorMap.invalidateSize(), 100);
+            }
+        }
+
+        function initOutdoorMap() {
+            if (outdoorMap) {
+                outdoorMap.remove();
+            }
+
+            outdoorMap = L.map('outdoor-nav-map').setView([13.76472, 100.53528], 17);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(outdoorMap);
+
+            // Add building markers
+            Object.entries(BUILDINGS).forEach(([code, bld]) => {
+                const isStart = currentRoute.startLoc.building === code;
+                const isEnd = currentRoute.endLoc.building === code;
+                
+                const marker = L.circleMarker([bld.lat, bld.lng], {
+                    radius: isStart || isEnd ? 18 : 12,
+                    fillColor: isStart ? '#28a745' : (isEnd ? '#dc3545' : bld.color),
+                    color: '#fff',
+                    weight: 3,
+                    fillOpacity: 0.9
+                }).addTo(outdoorMap);
+
+                marker.bindPopup(`<b>${bld.name}</b>`);
+            });
+        }
+
+        function renderOutdoorRoute() {
+            if (!outdoorMap) return;
+
+            // Draw route between buildings
+            const buildingsInRoute = [];
+            currentRoute.steps.forEach(step => {
+                if (step.location) {
+                    const bld = BUILDINGS[step.location.building];
+                    if (bld && !buildingsInRoute.find(b => b.code === step.location.building)) {
+                        buildingsInRoute.push({ code: step.location.building, ...bld });
+                    }
+                }
+                if (step.fromBuilding && step.toBuilding) {
+                    const fromBld = BUILDINGS[step.fromBuilding];
+                    const toBld = BUILDINGS[step.toBuilding];
+                    if (fromBld && toBld) {
+                        L.polyline([[fromBld.lat, fromBld.lng], [toBld.lat, toBld.lng]], {
+                            color: '#e91e8c',
+                            weight: 5,
+                            dashArray: '10, 10'
+                        }).addTo(outdoorMap);
+                    }
+                }
+            });
+
+            // Fit bounds
+            if (buildingsInRoute.length > 0) {
+                const bounds = buildingsInRoute.map(b => [b.lat, b.lng]);
+                outdoorMap.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+
+        function centerOutdoorMap() {
+            if (outdoorMap) {
+                outdoorMap.setView([13.76472, 100.53528], 17);
+            }
+        }
+
+        function renderFloorPlans() {
+            const container = document.getElementById('floor-plans-container');
+            container.innerHTML = '';
+
+            currentRoute.floorsVisited.forEach(key => {
+                const [building, floor] = key.split('_');
+                const bldName = BUILDINGS[building]?.name || building;
+                const imgKey = `${building}_${floor}`;
+                const hasImage = floorImages[imgKey];
+
+                // Get points on this floor from route
+                const floorPoints = currentRoute.steps
+                    .filter(s => s.location && s.location.building === building && s.location.floor === floor)
+                    .map(s => s.location);
+
+                // Get paths on this floor
+                const floorPaths = paths.filter(p => p.building === building && p.floor === floor);
+
+                let html = `
+                    <div class="map-card floor-plan-card" data-floor="${key}" style="display:none;">
+                        <div class="map-card-header">
+                            <span><i class="fas fa-layer-group me-2"></i>${bldName} ชั้น ${floor}</span>
+                        </div>
+                        <div class="floor-plan-container">
+                `;
+
+                if (hasImage) {
+                    html += `<img src="${floorImages[imgKey]}" class="floor-plan-img" id="floor-img-${key}">`;
+                    html += `<div class="floor-plan-overlay"><svg id="floor-svg-${key}"></svg></div>`;
+                    
+                    // Add markers
+                    floorPoints.forEach((pt, idx) => {
+                        const isStart = pt.id === currentRoute.startLoc.id;
+                        const isEnd = pt.id === currentRoute.endLoc.id;
+                        const markerClass = isStart ? 'start' : (isEnd ? 'end' : 'waypoint');
+                        const icon = isStart ? 'flag' : (isEnd ? 'flag-checkered' : TYPE_ICONS[pt.type] || 'circle');
+                        
+                        html += `<div class="floor-plan-marker" style="left:${pt.x}%;top:${pt.y}%;">
+                            <div class="floor-marker ${markerClass}" title="${pt.name}">
+                                <i class="fas fa-${icon}"></i>
+                            </div>
+                        </div>`;
+                    });
+                } else {
+                    html += `<div class="no-floor-plan">
+                        <i class="fas fa-image"></i>
+                        <div>ยังไม่มีแผนผังชั้นนี้</div>
+                        <small>เพิ่มได้ที่ Map Editor</small>
+                    </div>`;
+                }
+
+                html += `</div></div>`;
+                container.innerHTML += html;
+
+                // Draw paths on SVG after image loads
+                if (hasImage) {
+                    setTimeout(() => {
+                        const svg = document.getElementById(`floor-svg-${key}`);
+                        if (svg) {
+                            let pathsHtml = '';
+                            
+                            // Draw all paths
+                            floorPaths.forEach(p => {
+                                const from = locations.find(l => l.id === p.from);
+                                const to = locations.find(l => l.id === p.to);
+                                if (from && to) {
+                                    const isInRoute = floorPoints.find(fp => fp.id === from.id) && floorPoints.find(fp => fp.id === to.id);
+                                    pathsHtml += `<line class="route-path ${isInRoute ? 'animated' : ''}" 
+                                        x1="${from.x}%" y1="${from.y}%" x2="${to.x}%" y2="${to.y}%"
+                                        style="${isInRoute ? '' : 'stroke:#ccc;stroke-width:2;'}"/>`;
+                                }
+                            });
+                            
+                            svg.innerHTML = pathsHtml;
+                        }
+                    }, 100);
+                }
+            });
+        }
+
+        function renderDirections() {
+            const list = document.getElementById('directions-list');
+            document.getElementById('steps-count').textContent = currentRoute.steps.length + ' ขั้นตอน';
+
+            list.innerHTML = currentRoute.steps.map((step, idx) => {
+                const iconClass = step.type === 'dest' ? 'dest' : 
+                                 step.type === 'start' ? 'start' :
+                                 step.type === 'lift' ? 'lift' : 
+                                 step.type === 'stairs' ? 'stairs' : 
+                                 step.type.includes('turn') ? 'turn' : 'walk';
+                
+                return `<div class="direction-step ${idx === currentStepIndex ? 'active' : ''}" onclick="goToStep(${idx})">
+                    <div class="step-icon ${iconClass}"><i class="fas fa-${step.icon}"></i></div>
+                    <div class="step-content">
+                        <div class="step-title">${step.title}</div>
+                        <div class="step-detail">${step.detail}</div>
+                        ${step.time > 0 ? `<div class="step-time"><i class="fas fa-clock me-1"></i>~${Math.ceil(step.time/60)} นาที</div>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function goToStep(idx) {
+            currentStepIndex = idx;
+            renderDirections();
+            
+            const step = currentRoute.steps[idx];
+            if (step.location) {
+                const key = `${step.location.building}_${step.location.floor}`;
+                showMapTab(key);
+            } else if (step.fromBuilding || step.toBuilding) {
+                showMapTab('outdoor');
+            }
+        }
+
+        // ==================== VOICE ====================
+        function speakAll() {
+            if (!currentRoute || !('speechSynthesis' in window)) {
+                alert('ไม่สามารถเล่นเสียงได้');
+                return;
+            }
+
+            speechSynthesis.cancel();
+
+            let text = `เส้นทางไป ${currentRoute.endLoc.name}. `;
+            text += `ใช้เวลาประมาณ ${Math.ceil(currentRoute.totalTime / 60)} นาที. `;
+
+            currentRoute.steps.forEach((step, idx) => {
+                if (step.type !== 'start') {
+                    text += `ขั้นตอนที่ ${idx}. ${step.title}. `;
+                    if (step.location?.voice) {
+                        text += step.location.voice + '. ';
+                    }
+                }
+            });
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'th-TH';
+            utterance.rate = 0.85;
+            speechSynthesis.speak(utterance);
+        }
+
+        // ==================== UTILS ====================
+        function showLoading() { document.getElementById('loading').classList.remove('hidden'); }
+        function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
+    </script>
+</body>
+</html>
