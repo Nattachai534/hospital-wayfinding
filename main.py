@@ -20,8 +20,8 @@ from routes import navigation, admin
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
-    title="Hospital Wayfinding System",
-    description="ระบบนำทางโรงพยาบาลราชวิถี",
+    title="Rajavithi AI Wayfinding Platform",
+    description="ระบบนำทางอัจฉริยะด้วยปัญญาประดิษฐ์ โรงพยาบาลราชวิถี",
     version="1.0.0"
 )
 
@@ -118,7 +118,7 @@ async def ai_chat(request: ChatRequest):
 - ตึก E ชั้น 1: ห้องฉุกเฉิน (24 ชม.)
 - ตึก E ชั้น 4: ห้องประชุม EMS
 - ตึกสอาด ศิริพัฒน์: สถาบันโรคหัวใจ
-- โทรศัพท์: 02-354-8108
+- โทรศัพท์: 02-206-2900
 
 ตอบเป็นภาษาไทย สั้นกระชับ ใช้ emoji เหมาะสม"""
                     },
@@ -237,7 +237,7 @@ def get_local_response(question: str) -> str:
 • ตำแหน่งแผนก/ห้อง<br>
 • เวลาทำการ<br>
 • เบอร์ติดต่อ<br><br>
-หรือโทร: <b>02-354-8108</b>'''
+หรือโทร: <b>02-206-2900</b>'''
 
 
 # ==================== API Status ====================
